@@ -365,7 +365,7 @@ const ConfirmDelete=({open,onClose,onConfirm,titulo,descricao})=>(
 );
 
 const Sidebar=({aba,setAba,mobile,onReset,userEmail,onLogout,onRefresh})=>{
-  const NAV=[{id:"eventos",icon:"🎪",label:"Eventos"},{id:"equipe",icon:"👥",label:"Equipe"},{id:"funcoes",icon:"🎭",label:"Funções"},{id:"disponibilidade",icon:"📅",label:"Disponib."},{id:"treinamentos",icon:"📚",label:"Treinos"},{id:"bonificacoes",icon:"⭐",label:"Bônus"},{id:"feedback",icon:"💬",label:"Feedback"},{id:"plano",icon:"💳",label:"Plano"},{id:"relatorios",icon:"💰",label:"Relatórios"}];
+  const NAV=[{id:"eventos",icon:"🎪",label:"Eventos"},{id:"equipe",icon:"👥",label:"Equipe"},{id:"motoristas",icon:"🚗",label:"Motoristas"},{id:"funcoes",icon:"🎭",label:"Funções"},{id:"disponibilidade",icon:"📅",label:"Disponib."},{id:"treinamentos",icon:"📚",label:"Treinos"},{id:"bonificacoes",icon:"⭐",label:"Bônus"},{id:"feedback",icon:"💬",label:"Feedback"},{id:"plano",icon:"💳",label:"Plano"},{id:"relatorios",icon:"💰",label:"Relatórios"}];
   return(<nav style={{width:mobile?"100%":220,background:"var(--sidebar)",borderRight:"none",borderTop:mobile?"1px solid #1E293B":"none",display:"flex",flexDirection:mobile?"row":"column",padding:mobile?"0 0 env(safe-area-inset-bottom,0px)":"0",flexShrink:0,justifyContent:mobile?"flex-start":"flex-start"}}>
     {!mobile&&<div style={{padding:"18px 20px 14px",borderBottom:"1px solid #1E293B"}}><img src={LOGO_URL} alt="EscalaFest" style={{height:36,objectFit:"contain",display:"block"}}/></div>}
     <div style={{padding:mobile?"0":"8px 0",flex:mobile?"0 0 auto":1,display:"flex",flexDirection:mobile?"row":"column",justifyContent:mobile?"flex-start":"flex-start",overflowX:mobile?"auto":"visible",overflowY:mobile?"hidden":"visible",WebkitOverflowScrolling:"touch"}}>
@@ -2070,6 +2070,7 @@ function AppMotorista({user,perfil,onLogout,adminId}){
   const[eventos,setEventos]=useState([]);
   const[freelancers,setFreelancers]=useState([]);
   const[funcoes,setFuncoes]=useState([]);
+  const[motoristaDias,setMotoristaDiasLocal]=useState({});
   const[carregando,setCarregando]=useState(true);
   const[resolvedAdmin,setResolvedAdmin]=useState(adminId);
   const[aba,setAba]=useState("hoje");
@@ -2083,26 +2084,38 @@ function AppMotorista({user,perfil,onLogout,adminId}){
         const aid=p?.admin_id||adminId;
         setResolvedAdmin(aid);
         if(!aid){setCarregando(false);return;}
-        const[evs,fls,fns]=await Promise.all([
+        const[evs,fls,fns,md]=await Promise.all([
           crossLoad(aid,"eventos"),
           crossLoad(aid,"freelancers"),
           crossLoad(aid,"funcoes"),
+          crossLoad(aid,"motorista_escala"),
         ]);
         setEventos(evs||[]);setFreelancers(fls||[]);setFuncoes(fns||FUNCOES_INIT);
+        setMotoristaDiasLocal(md||{});
       }catch(e){console.error("Erro motorista:",e);}
       finally{setCarregando(false);}
     };
     load();
+    const interval=setInterval(load,3*60*1000);
+    return()=>clearInterval(interval);
   },[user.id,adminId]);
 
   const hoje=localDateStr();
   const fmtD=d=>{if(!d)return"";const[y,m,day]=d.split("-");return`${day}/${m}/${y}`;};
   const fnCor=nome=>(funcoes.find(f=>f.nome===nome)||{}).cor||"var(--text3)";
   const meuFl=freelancers.find(f=>f.userId===user.id)||freelancers.find(f=>f.email?.toLowerCase()===user.email?.toLowerCase());
-  const meusEventos=meuFl
-    ?eventos.filter(ev=>Array.isArray(ev.equipe)&&ev.equipe.find(m=>m.freelancerId===meuFl.id))
+
+  // Dias em que o motorista está alocado (via AbaMotoristas do admin)
+  const diasAlocados=meuFl
+    ?Object.entries(motoristaDias).filter(([,ids])=>ids.includes(meuFl.id)).map(([date])=>date)
+    :[];
+
+  // Todos os eventos dos dias alocados (o motorista vê TODOS, não só os da sua equipe)
+  const meusEventos=diasAlocados.length>0
+    ?eventos.filter(ev=>diasAlocados.includes(ev.data))
       .sort((a,b)=>{const d=a.data.localeCompare(b.data);return d!==0?d:a.horaInicio.localeCompare(b.horaInicio);})
     :[];
+
   const evHoje=meusEventos.filter(ev=>ev.data===hoje);
   const evProx=meusEventos.filter(ev=>ev.data>hoje);
   const evAnt=meusEventos.filter(ev=>ev.data<hoje).reverse();
@@ -2213,7 +2226,8 @@ function AppMotorista({user,perfil,onLogout,adminId}){
                 <p style={{color:"var(--text3)",margin:0,fontSize:13}}>{evHoje.length===0?"Nenhum evento hoje":`${evHoje.length} evento${evHoje.length!==1?"s":""} · ${hoje.split("-").reverse().join("/")}`}</p>
               </div>
               {!meuFl&&<div style={{background:"#FFFBEB",border:"1px solid #f59e0b33",borderRadius:10,padding:20,textAlign:"center",color:"var(--warning)",fontSize:14}}>⚠️ Cadastro não vinculado. Peça ao coordenador para te adicionar com o e-mail <strong>{user.email}</strong></div>}
-              {meuFl&&evHoje.length===0&&<div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:48,textAlign:"center",color:"var(--text3)"}}><div style={{fontSize:40,marginBottom:12}}>🚗</div><div style={{fontSize:15,fontWeight:600,marginBottom:4,color:"var(--text)"}}>Dia livre!</div><div style={{fontSize:13}}>Nenhum evento escalado para hoje.</div></div>}
+              {meuFl&&diasAlocados.length===0&&<div style={{background:"#FFFBEB",border:"1px solid #f59e0b33",borderRadius:12,padding:32,textAlign:"center",color:"var(--warning)",fontSize:13}}>⚠️ Você ainda não foi alocado a nenhum dia. Aguarde o coordenador alocar seu roteiro.</div>}
+              {meuFl&&diasAlocados.length>0&&evHoje.length===0&&<div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:48,textAlign:"center",color:"var(--text3)"}}><div style={{fontSize:40,marginBottom:12}}>🚗</div><div style={{fontSize:15,fontWeight:600,marginBottom:4,color:"var(--text)"}}>Dia livre!</div><div style={{fontSize:13}}>Nenhum evento hoje. Veja os próximos na aba Próximos.</div></div>}
               {meuFl&&evHoje.length>0&&<div style={{display:"flex",flexDirection:"column",gap:16}}>{evHoje.map(ev=><CardRoteiro key={ev.id} ev={ev}/>)}</div>}
             </div>
           )}
@@ -3522,6 +3536,157 @@ function AbaPlano({perfil,userEmail,onUpgrade,onPlanoAtivado,onCancelar}){
 }
 
 // ── APP ────────────────────────────────────────────────────────────────────────
+// ── ABA MOTORISTAS (ADMIN) ────────────────────────────────────────────────────
+function AbaMotoristas({freelancers,eventos,motoristaDias,setMotoristaDias}){
+  const hoje=localDateStr();
+  const[dataSel,setDataSel]=useState(hoje);
+  const fmtD=d=>{if(!d)return"";const[y,m,day]=d.split("-");return`${day}/${m}/${y}`;};
+
+  const motoristas=freelancers.filter(f=>f.motorista);
+  const evsDia=[...eventos].filter(e=>e.data===dataSel).sort((a,b)=>(a.horaInicio||"").localeCompare(b.horaInicio||""));
+  const alocadosDia=motoristaDias[dataSel]||[];
+
+  const togMotorista=fid=>{
+    setMotoristaDias(d=>{
+      const cur=d[dataSel]||[];
+      const next=cur.includes(fid)?cur.filter(x=>x!==fid):[...cur,fid];
+      if(next.length===0){const{[dataSel]:_,...rest}=d;return rest;}
+      return{...d,[dataSel]:next};
+    });
+  };
+
+  // Navegar entre dias com eventos
+  const diasComEventos=[...new Set(eventos.map(e=>e.data))].sort();
+  const idxAtual=diasComEventos.indexOf(dataSel);
+  const irPara=d=>setDataSel(d);
+
+  return(
+    <div style={{padding:"24px 28px",flex:1,overflowY:"auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24,paddingBottom:20,borderBottom:"1px solid var(--border)",flexWrap:"wrap",gap:12}}>
+        <div>
+          <h2 style={{color:"var(--text)",margin:0,fontSize:18,fontWeight:600}}>🚗 Escala de Motoristas</h2>
+          <p style={{color:"var(--text2)",margin:"4px 0 0",fontSize:13}}>Aloque motoristas por dia — eles verão todos os eventos da data no app</p>
+        </div>
+      </div>
+
+      {motoristas.length===0?(
+        <div style={{textAlign:"center",color:"var(--text3)",padding:"48px 0",fontSize:14,background:"var(--card)",border:"1px solid var(--border)",borderRadius:12}}>
+          <div style={{fontSize:32,marginBottom:12}}>🚗</div>
+          <div style={{fontWeight:600,color:"var(--text)",marginBottom:6}}>Nenhum motorista cadastrado</div>
+          <div style={{fontSize:12}}>Vá em <strong>Equipe → Criar Acesso</strong> e selecione o tipo <strong>Motorista</strong>.</div>
+        </div>
+      ):(
+        <>
+          {/* Seletor de data */}
+          <div style={{display:"flex",gap:10,alignItems:"center",marginBottom:20,flexWrap:"wrap"}}>
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              <label style={{fontSize:11,fontWeight:600,color:"var(--text2)",textTransform:"uppercase",letterSpacing:1}}>Data</label>
+              <input type="date" value={dataSel} onChange={e=>setDataSel(e.target.value)} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:10,padding:"9px 14px",color:"var(--text)",fontSize:14,outline:"none",fontFamily:"inherit"}}/>
+            </div>
+            {diasComEventos.length>0&&(
+              <div style={{display:"flex",gap:6,alignSelf:"flex-end",flexWrap:"wrap"}}>
+                {idxAtual>0&&<button onClick={()=>irPara(diasComEventos[idxAtual-1])} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:8,padding:"8px 12px",color:"var(--text2)",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>‹ {fmtD(diasComEventos[idxAtual-1])}</button>}
+                {idxAtual<diasComEventos.length-1&&<button onClick={()=>irPara(diasComEventos[idxAtual+1])} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:8,padding:"8px 12px",color:"var(--text2)",fontSize:12,cursor:"pointer",fontFamily:"inherit"}}>{fmtD(diasComEventos[idxAtual+1])} ›</button>}
+              </div>
+            )}
+            <div style={{alignSelf:"flex-end",paddingBottom:2,fontSize:13,color:"var(--text3)"}}>
+              {evsDia.length===0?"Sem eventos nesta data":`${evsDia.length} evento${evsDia.length!==1?"s":""} nesta data`}
+            </div>
+          </div>
+
+          {/* Grid principal */}
+          <div style={{display:"grid",gridTemplateColumns:"minmax(260px,1fr) minmax(260px,1.4fr)",gap:20}}>
+
+            {/* Coluna: Motoristas */}
+            <div>
+              <div style={{fontSize:11,fontWeight:700,color:"var(--text2)",textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>Motoristas — {fmtD(dataSel)}</div>
+              <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                {motoristas.map(f=>{
+                  const alocado=alocadosDia.includes(f.id);
+                  return(
+                    <button key={f.id} onClick={()=>togMotorista(f.id)} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:alocado?"#0C6E7E12":"var(--card)",border:`2px solid ${alocado?"#0C6E7E":"var(--border)"}`,borderRadius:12,cursor:"pointer",textAlign:"left",fontFamily:"inherit",transition:"all .12s"}}>
+                      <div style={{width:40,height:40,borderRadius:"50%",background:avatarColor(f.nome),display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,color:"#fff",flexShrink:0}}>{initials(f.nome)}</div>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontWeight:700,color:"var(--text)",fontSize:14}}>{f.nome}</div>
+                        {f.telefone&&<div style={{fontSize:11,color:"var(--text3)"}}>📱 {f.telefone}</div>}
+                      </div>
+                      <div style={{width:26,height:26,borderRadius:"50%",border:`2px solid ${alocado?"#0C6E7E":"var(--border)"}`,background:alocado?"#0C6E7E":"transparent",display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:13,fontWeight:700,flexShrink:0,transition:"all .12s"}}>
+                        {alocado?"✓":""}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {alocadosDia.length>0&&(
+                <div style={{marginTop:14,background:"#0C6E7E12",border:"1px solid #0C6E7E33",borderRadius:10,padding:"10px 14px",fontSize:12,color:"#0C6E7E",fontWeight:600}}>
+                  ✅ {alocadosDia.length} motorista{alocadosDia.length!==1?"s":""} alocado{alocadosDia.length!==1?"s":""} para {fmtD(dataSel)}
+                </div>
+              )}
+            </div>
+
+            {/* Coluna: Eventos do dia */}
+            <div>
+              <div style={{fontSize:11,fontWeight:700,color:"var(--text2)",textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>Eventos do dia — visíveis ao motorista</div>
+              {evsDia.length===0?(
+                <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:32,textAlign:"center",color:"var(--text3)",fontSize:13}}>
+                  Nenhum evento em {fmtD(dataSel)}
+                </div>
+              ):(
+                <div style={{display:"flex",flexDirection:"column",gap:10}}>
+                  {evsDia.map(ev=>(
+                    <div key={ev.id} style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:"14px 16px"}}>
+                      <div style={{fontWeight:700,color:"var(--text)",fontSize:14,marginBottom:6}}>{ev.nome}</div>
+                      <div style={{fontSize:12,color:"var(--text2)",marginBottom:4}}>⏰ {ev.horaInicio}–{ev.horaFim}</div>
+                      {ev.local&&<div style={{fontSize:12,color:"var(--text3)",marginBottom:6}}>📍 {ev.local}</div>}
+                      {(ev.horarioQuintal||ev.horarioGalpao||ev.obsLogistica)&&(
+                        <div style={{background:"#0C6E7E10",border:"1px solid #0C6E7E25",borderRadius:8,padding:"8px 10px",fontSize:12}}>
+                          <div style={{fontWeight:700,color:"#0C6E7E",fontSize:10,textTransform:"uppercase",letterSpacing:1,marginBottom:4}}>Logística</div>
+                          {ev.horarioQuintal&&<div style={{color:"var(--text)"}}>🏡 Quintal Saquarema: <strong>{ev.horarioQuintal}</strong></div>}
+                          {ev.horarioGalpao&&<div style={{color:"var(--text)"}}>🏭 Galpão Araruama: <strong>{ev.horarioGalpao}</strong></div>}
+                          {ev.obsLogistica&&<div style={{color:"var(--text2)",marginTop:4}}>📋 {ev.obsLogistica}</div>}
+                        </div>
+                      )}
+                      <div style={{marginTop:8,fontSize:11,color:"var(--text3)"}}>
+                        {(ev.equipe||[]).length} pessoa{(ev.equipe||[]).length!==1?"s":""} na equipe
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Resumo de todas as alocações */}
+          {Object.keys(motoristaDias).length>0&&(
+            <div style={{marginTop:32,paddingTop:24,borderTop:"1px solid var(--border)"}}>
+              <div style={{fontSize:11,fontWeight:700,color:"var(--text2)",textTransform:"uppercase",letterSpacing:1,marginBottom:14}}>Todas as alocações</div>
+              <div style={{display:"flex",flexDirection:"column",gap:8}}>
+                {Object.entries(motoristaDias)
+                  .sort(([a],[b])=>a.localeCompare(b))
+                  .map(([date,ids])=>{
+                    const nomes=ids.map(id=>motoristas.find(f=>f.id===id)?.nome).filter(Boolean);
+                    if(!nomes.length)return null;
+                    const qtdEvs=eventos.filter(e=>e.data===date).length;
+                    const isPast=date<hoje;
+                    return(
+                      <button key={date} onClick={()=>setDataSel(date)} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 16px",background:dataSel===date?"#0C6E7E12":"var(--card)",border:`1px solid ${dataSel===date?"#0C6E7E":"var(--border)"}`,borderRadius:10,cursor:"pointer",textAlign:"left",fontFamily:"inherit",opacity:isPast?0.6:1}}>
+                        <span style={{fontSize:13,fontWeight:700,color:dataSel===date?"#0C6E7E":"var(--text)",minWidth:76}}>📅 {fmtD(date)}</span>
+                        <span style={{fontSize:12,color:"#0C6E7E",flex:1}}>🚗 {nomes.join(", ")}</span>
+                        <span style={{fontSize:11,color:"var(--text3)",flexShrink:0}}>{qtdEvs} evento{qtdEvs!==1?"s":""}</span>
+                        <button onClick={e=>{e.stopPropagation();setMotoristaDias(d=>{const{[date]:_,...rest}=d;return rest;});}} style={{background:"transparent",border:"1px solid #fecaca",borderRadius:6,padding:"3px 8px",color:"var(--danger)",fontSize:11,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Remover</button>
+                      </button>
+                    );
+                  })
+                }
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 function App(){
   const[user,setUser]=useState(undefined);
   const[perfil,setPerfil]=useState(null);
@@ -3533,6 +3698,7 @@ function App(){
   const[treinamentos,setTreinamentos]=useState([]);
   const[bonificacoes,setBonificacoesState]=useState(BONUS_INIT);
   const[perguntas,setPerguntasState]=useState(PERGUNTAS_INIT);
+  const[motoristaDias,setMotoristaDiasState]=useState({});
   const[carregando,setCarregando]=useState(true);
   const[salvando,setSalvando]=useState(false);
   const[mob,setMob]=useState(typeof window!=="undefined"&&window.innerWidth<640);
@@ -3542,7 +3708,7 @@ function App(){
   const carregarDados=async(userId)=>{
     setCarregando(true);
     try{
-      const[fls,evs,dsp,fns,trs,bns,pergs]=await Promise.all([
+      const[fls,evs,dsp,fns,trs,bns,pergs,md]=await Promise.all([
         cloudLoad(userId,"freelancers"),
         cloudLoad(userId,"eventos"),
         cloudLoad(userId,"disponibilidade"),
@@ -3550,6 +3716,7 @@ function App(){
         cloudLoad(userId,"treinamentos"),
         cloudLoad(userId,"bonificacoes"),
         cloudLoad(userId,"perguntas_feedback"),
+        cloudLoad(userId,"motorista_escala"),
       ]);
       setFl(fls||FL_INIT);setEv(evs||EV_INIT);setDisp(dsp||DISP_INIT);
       setFuncoes(fns||FUNCOES_INIT);setTreinamentos(trs||[]);
@@ -3558,6 +3725,7 @@ function App(){
       NIVEIS_BONUS=bnsCarregados;
       const prgCarregadas=pergs||PERGUNTAS_INIT;
       setPerguntasState(prgCarregadas);
+      setMotoristaDiasState(md||{});
     }catch(e){
       console.error("Erro ao carregar dados:",e);
     }finally{
@@ -3656,6 +3824,7 @@ function App(){
   const setTreinamentosS=v=>{const next=typeof v==="function"?v(treinamentos):v;setTreinamentos(next);schedSave("treinamentos",next);};
   const setBonificacoes=v=>{const next=typeof v==="function"?v(bonificacoes):v;setBonificacoesState(next);NIVEIS_BONUS=next;schedSave("bonificacoes",next);};
   const setPerguntas=v=>{const next=typeof v==="function"?v(perguntas):v;setPerguntasState(next);schedSave("perguntas_feedback",next);};
+  const setMotoristaDias=v=>{const next=typeof v==="function"?v(motoristaDias):v;setMotoristaDiasState(next);schedSave("motorista_escala",next);};
   const logout=async()=>{await sb.auth.signOut();setUser(null);setPerfil(null);setFl([]);setEv([]);setDisp({});setFuncoes([]);setTreinamentos([]);};
   const resetarDados=()=>{if(!window.confirm("Tem certeza?"))return;setFlS(FL_INIT);setEvS(EV_INIT);setDispS(DISP_INIT);setFuncoesS(FUNCOES_INIT);};
   const refresh=()=>{if(user)carregarDados(user.id);};
@@ -3697,6 +3866,7 @@ function App(){
           {salvando&&<div style={{position:"fixed",bottom:20,right:20,background:"var(--sidebar)",borderRadius:"var(--radius)",padding:"7px 16px",fontSize:12,color:"#fff",zIndex:999,fontWeight:500,boxShadow:"0 4px 12px rgba(0,0,0,.2)"}}>Salvando...</div>}
           {aba==="eventos"&&<AbaEventos eventos={ev} setEventos={setEvS} freelancers={fl} disponibilidade={disp} funcoes={funcoes}/>}
           {aba==="equipe"&&<AbaEquipeAdmin freelancers={fl} setFreelancers={setFlS} eventos={ev} funcoes={funcoes} adminUser={user} maxFl={maxFl} onUpgrade={()=>setModalPlano(true)}/>}
+          {aba==="motoristas"&&<AbaMotoristas freelancers={fl} eventos={ev} motoristaDias={motoristaDias} setMotoristaDias={setMotoristaDias}/>}
           {aba==="funcoes"&&<AbaFuncoes funcoes={funcoes} setFuncoes={setFuncoesS}/>}
           {aba==="disponibilidade"&&<AbaDisponibilidade freelancers={fl} disponibilidade={disp} setDisponibilidade={setDispS}/>}
           {aba==="treinamentos"&&<AbaTreinamentos treinamentos={treinamentos} setTreinamentos={setTreinamentosS} adminId={user.id} user={user} perfil={perfil} freelancers={fl}/>}
