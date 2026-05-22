@@ -2105,10 +2105,10 @@ function AppMotorista({user,perfil,onLogout,adminId}){
   const fnCor=nome=>(funcoes.find(f=>f.nome===nome)||{}).cor||"var(--text3)";
   const meuFl=freelancers.find(f=>f.userId===user.id)||freelancers.find(f=>f.email?.toLowerCase()===user.email?.toLowerCase());
 
-  // Dias em que o motorista está alocado (via AbaMotoristas do admin)
-  const diasAlocados=meuFl
-    ?Object.entries(motoristaDias).filter(([,ids])=>ids.includes(meuFl.id)).map(([date])=>date)
-    :[];
+  // Dias alocados: usa o userId do auth diretamente, sem depender do registro de freelancer
+  const diasAlocados=Object.entries(motoristaDias)
+    .filter(([,ids])=>ids.includes(user.id))
+    .map(([date])=>date);
 
   // Todos os eventos dos dias alocados (o motorista vê TODOS, não só os da sua equipe)
   const meusEventos=diasAlocados.length>0
@@ -2225,10 +2225,9 @@ function AppMotorista({user,perfil,onLogout,adminId}){
                 <h2 style={{color:"var(--text)",margin:"0 0 2px",fontSize:18,fontWeight:700}}>Roteiro de Hoje</h2>
                 <p style={{color:"var(--text3)",margin:0,fontSize:13}}>{evHoje.length===0?"Nenhum evento hoje":`${evHoje.length} evento${evHoje.length!==1?"s":""} · ${hoje.split("-").reverse().join("/")}`}</p>
               </div>
-              {!meuFl&&<div style={{background:"#FFFBEB",border:"1px solid #f59e0b33",borderRadius:10,padding:20,textAlign:"center",color:"var(--warning)",fontSize:14}}>⚠️ Cadastro não vinculado. Peça ao coordenador para te adicionar com o e-mail <strong>{user.email}</strong></div>}
-              {meuFl&&diasAlocados.length===0&&<div style={{background:"#FFFBEB",border:"1px solid #f59e0b33",borderRadius:12,padding:32,textAlign:"center",color:"var(--warning)",fontSize:13}}>⚠️ Você ainda não foi alocado a nenhum dia. Aguarde o coordenador alocar seu roteiro.</div>}
-              {meuFl&&diasAlocados.length>0&&evHoje.length===0&&<div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:48,textAlign:"center",color:"var(--text3)"}}><div style={{fontSize:40,marginBottom:12}}>🚗</div><div style={{fontSize:15,fontWeight:600,marginBottom:4,color:"var(--text)"}}>Dia livre!</div><div style={{fontSize:13}}>Nenhum evento hoje. Veja os próximos na aba Próximos.</div></div>}
-              {meuFl&&evHoje.length>0&&<div style={{display:"flex",flexDirection:"column",gap:16}}>{evHoje.map(ev=><CardRoteiro key={ev.id} ev={ev}/>)}</div>}
+              {diasAlocados.length===0&&<div style={{background:"#FFFBEB",border:"1px solid #f59e0b33",borderRadius:12,padding:32,textAlign:"center",color:"var(--warning)",fontSize:13}}>⚠️ Você ainda não foi alocado a nenhum dia. Aguarde o coordenador alocar seu roteiro na aba Motoristas.</div>}
+              {diasAlocados.length>0&&evHoje.length===0&&<div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:12,padding:48,textAlign:"center",color:"var(--text3)"}}><div style={{fontSize:40,marginBottom:12}}>🚗</div><div style={{fontSize:15,fontWeight:600,marginBottom:4,color:"var(--text)"}}>Dia livre!</div><div style={{fontSize:13}}>Nenhum evento hoje. Veja os próximos na aba Próximos.</div></div>}
+              {evHoje.length>0&&<div style={{display:"flex",flexDirection:"column",gap:16}}>{evHoje.map(ev=><CardRoteiro key={ev.id} ev={ev}/>)}</div>}
             </div>
           )}
           {aba==="proximos"&&(
@@ -3542,14 +3541,15 @@ function AbaMotoristas({freelancers,eventos,motoristaDias,setMotoristaDias}){
   const[dataSel,setDataSel]=useState(hoje);
   const fmtD=d=>{if(!d)return"";const[y,m,day]=d.split("-");return`${day}/${m}/${y}`;};
 
-  const motoristas=freelancers.filter(f=>f.motorista);
+  const motoristas=freelancers.filter(f=>f.motorista&&f.userId);
   const evsDia=[...eventos].filter(e=>e.data===dataSel).sort((a,b)=>(a.horaInicio||"").localeCompare(b.horaInicio||""));
   const alocadosDia=motoristaDias[dataSel]||[];
 
-  const togMotorista=fid=>{
+  // Armazena pelo userId (auth ID) para o motorista encontrar sem depender do freelancer numérico
+  const togMotorista=userId=>{
     setMotoristaDias(d=>{
       const cur=d[dataSel]||[];
-      const next=cur.includes(fid)?cur.filter(x=>x!==fid):[...cur,fid];
+      const next=cur.includes(userId)?cur.filter(x=>x!==userId):[...cur,userId];
       if(next.length===0){const{[dataSel]:_,...rest}=d;return rest;}
       return{...d,[dataSel]:next};
     });
@@ -3602,9 +3602,9 @@ function AbaMotoristas({freelancers,eventos,motoristaDias,setMotoristaDias}){
               <div style={{fontSize:11,fontWeight:700,color:"var(--text2)",textTransform:"uppercase",letterSpacing:1,marginBottom:12}}>Motoristas — {fmtD(dataSel)}</div>
               <div style={{display:"flex",flexDirection:"column",gap:10}}>
                 {motoristas.map(f=>{
-                  const alocado=alocadosDia.includes(f.id);
+                  const alocado=alocadosDia.includes(f.userId);
                   return(
-                    <button key={f.id} onClick={()=>togMotorista(f.id)} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:alocado?"#0C6E7E12":"var(--card)",border:`2px solid ${alocado?"#0C6E7E":"var(--border)"}`,borderRadius:12,cursor:"pointer",textAlign:"left",fontFamily:"inherit",transition:"all .12s"}}>
+                    <button key={f.id} onClick={()=>togMotorista(f.userId)} style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",background:alocado?"#0C6E7E12":"var(--card)",border:`2px solid ${alocado?"#0C6E7E":"var(--border)"}`,borderRadius:12,cursor:"pointer",textAlign:"left",fontFamily:"inherit",transition:"all .12s"}}>
                       <div style={{width:40,height:40,borderRadius:"50%",background:avatarColor(f.nome),display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,color:"#fff",flexShrink:0}}>{initials(f.nome)}</div>
                       <div style={{flex:1,minWidth:0}}>
                         <div style={{fontWeight:700,color:"var(--text)",fontSize:14}}>{f.nome}</div>
@@ -3664,7 +3664,7 @@ function AbaMotoristas({freelancers,eventos,motoristaDias,setMotoristaDias}){
                 {Object.entries(motoristaDias)
                   .sort(([a],[b])=>a.localeCompare(b))
                   .map(([date,ids])=>{
-                    const nomes=ids.map(id=>motoristas.find(f=>f.id===id)?.nome).filter(Boolean);
+                    const nomes=ids.map(id=>motoristas.find(f=>f.userId===id)?.nome).filter(Boolean);
                     if(!nomes.length)return null;
                     const qtdEvs=eventos.filter(e=>e.data===date).length;
                     const isPast=date<hoje;
