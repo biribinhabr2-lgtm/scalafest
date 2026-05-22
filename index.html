@@ -2096,7 +2096,7 @@ function AppMotorista({user,perfil,onLogout,adminId}){
       finally{setCarregando(false);}
     };
     load();
-    const interval=setInterval(load,3*60*1000);
+    const interval=setInterval(load,30*1000);
     return()=>clearInterval(interval);
   },[user.id,adminId]);
 
@@ -3824,7 +3824,7 @@ function App(){
   const setTreinamentosS=v=>{const next=typeof v==="function"?v(treinamentos):v;setTreinamentos(next);schedSave("treinamentos",next);};
   const setBonificacoes=v=>{const next=typeof v==="function"?v(bonificacoes):v;setBonificacoesState(next);NIVEIS_BONUS=next;schedSave("bonificacoes",next);};
   const setPerguntas=v=>{const next=typeof v==="function"?v(perguntas):v;setPerguntasState(next);schedSave("perguntas_feedback",next);};
-  const setMotoristaDias=v=>{const next=typeof v==="function"?v(motoristaDias):v;setMotoristaDiasState(next);schedSave("motorista_escala",next);};
+  const setMotoristaDias=v=>{const next=typeof v==="function"?v(motoristaDias):v;setMotoristaDiasState(next);if(user)cloudSave(user.id,"motorista_escala",next);};
   const logout=async()=>{await sb.auth.signOut();setUser(null);setPerfil(null);setFl([]);setEv([]);setDisp({});setFuncoes([]);setTreinamentos([]);};
   const resetarDados=()=>{if(!window.confirm("Tem certeza?"))return;setFlS(FL_INIT);setEvS(EV_INIT);setDispS(DISP_INIT);setFuncoesS(FUNCOES_INIT);};
   const refresh=()=>{if(user)carregarDados(user.id);};
