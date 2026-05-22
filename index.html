@@ -96,6 +96,7 @@ input,select,textarea{font-size:16px!important}
 .sf-btn-danger:hover{background:#B91C1C!important}
 .sf-btn-success:hover{background:#F0FDF4!important}
 .sf-btn:disabled{opacity:.5;cursor:not-allowed}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -734,28 +735,45 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes}){
               placeholder="🔍 Buscar pelo nome..."
               style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:8,padding:"7px 12px",color:"var(--text)",fontSize:12,outline:"none",fontFamily:"inherit",width:"100%",marginBottom:8,boxSizing:"border-box"}}
             />
-            <div style={{display:"flex",flexDirection:"column",gap:5,maxHeight:190,overflowY:"auto",marginBottom:10}}>
-              {[...freelancers]
-                .filter(f=>!det.equipe.find(m=>m.freelancerId===f.id))
-                .filter(f=>(mf.busca||"")===""||f.nome.toLowerCase().includes((mf.busca||"").toLowerCase()))
-                .sort(mf.sortEstrelas
-                  ?(a,b)=>((b.estrelas||0)-(a.estrelas||0))||a.nome.localeCompare(b.nome,"pt-BR")
-                  :(a,b)=>a.nome.localeCompare(b.nome,"pt-BR"))
-                .map(f=>{
-                const al=checkDisp(f.id,det);const sel=mf.freelancerId===String(f.id);
-                return(<button key={f.id} onClick={()=>setMf(fm=>({...fm,freelancerId:String(f.id)}))} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",background:sel?"var(--primary-light)":al?.tipo==="indisponivel"||al?.tipo==="conflito"?"#ef444408":"var(--card)",border:`1px solid ${sel?"var(--primary)":al?.cor?al.cor+"44":"var(--border)"}`,borderRadius:8,cursor:"pointer",textAlign:"left",width:"100%",fontFamily:"inherit"}}>
-                  <Avatar nome={f.nome} size={26}/>
-                  <div style={{flex:1,overflow:"hidden"}}>
-                    <div style={{fontSize:12,fontWeight:600,color:al?.tipo==="indisponivel"||al?.tipo==="conflito"?"var(--danger)":"var(--text)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{f.nome}</div>
-                    {al&&al.tipo!=="sem_info"&&<div style={{fontSize:10,color:al.cor,marginTop:1}}>
-                      {al.tipo==="disponivel"?"✅":al.tipo==="indisponivel"?"🚫":al.tipo==="conflito"?"❌":"⚠️"} {al.msg}
-                    </div>}
-                    {f.estrelas>0&&<div style={{fontSize:10,color:"#f59e0b"}}>{"★".repeat(f.estrelas)}</div>}
-                  </div>
-                  {sel&&<span style={{color:"var(--primary)",flexShrink:0}}>✓</span>}
-                </button>);
-              })}
-              {freelancers.filter(f=>!det.equipe.find(m=>m.freelancerId===f.id)).length===0&&<div style={{color:"var(--text3)",fontSize:12,textAlign:"center",padding:8}}>Todos já escalados!</div>}
+            <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:240,overflowY:"auto",marginBottom:10}}>
+              {(()=>{
+                const todosForaEquipe=freelancers.filter(f=>!det.equipe.find(m=>m.freelancerId===f.id));
+                if(todosForaEquipe.length===0)return<div style={{color:"var(--text3)",fontSize:12,textAlign:"center",padding:8}}>Todos já escalados!</div>;
+                const flsBase=[...todosForaEquipe]
+                  .filter(f=>(mf.busca||"")===""||f.nome.toLowerCase().includes((mf.busca||"").toLowerCase()))
+                  .sort(mf.sortEstrelas
+                    ?(a,b)=>((b.estrelas||0)-(a.estrelas||0))||a.nome.localeCompare(b.nome,"pt-BR")
+                    :(a,b)=>a.nome.localeCompare(b.nome,"pt-BR"));
+                if(flsBase.length===0)return<div style={{color:"var(--text3)",fontSize:12,textAlign:"center",padding:8}}>Nenhum resultado</div>;
+                const getGrupo=f=>{const al=checkDisp(f.id,det);if(!al||al.tipo==="disponivel"||al.tipo==="sem_info")return 0;if(al.tipo==="parcial")return 1;return 2;};
+                const GRUPOS=[
+                  {key:"disp",fls:flsBase.filter(f=>getGrupo(f)===0),cor:"#16a34a",bg:"#f0fdf4",bord:"#bbf7d0",label:"✅ Disponível"},
+                  {key:"rest",fls:flsBase.filter(f=>getGrupo(f)===1),cor:"#d97706",bg:"#fffbeb",bord:"#fde68a",label:"⚠️ Restrição"},
+                  {key:"indisp",fls:flsBase.filter(f=>getGrupo(f)===2),cor:"#dc2626",bg:"#fef2f2",bord:"#fecaca",label:"🚫 Indisponível"},
+                ].filter(g=>g.fls.length>0);
+                const renderBtn=f=>{
+                  const al=checkDisp(f.id,det);const sel=mf.freelancerId===String(f.id);
+                  const isIndisp=al?.tipo==="indisponivel"||al?.tipo==="conflito";
+                  return(<button key={f.id} onClick={()=>setMf(fm=>({...fm,freelancerId:String(f.id)}))} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",background:sel?"var(--primary-light)":isIndisp?"#fef2f2":"var(--card)",border:`1px solid ${sel?"var(--primary)":al?.cor?al.cor+"55":"var(--border)"}`,borderRadius:8,cursor:"pointer",textAlign:"left",width:"100%",fontFamily:"inherit"}}>
+                    <Avatar nome={f.nome} size={26}/>
+                    <div style={{flex:1,overflow:"hidden"}}>
+                      <div style={{fontSize:12,fontWeight:600,color:isIndisp?"#dc2626":"var(--text)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{f.nome}</div>
+                      {al&&al.tipo!=="sem_info"&&<div style={{fontSize:10,color:al.cor,marginTop:1}}>{al.tipo==="disponivel"?"✅":al.tipo==="indisponivel"?"🚫":al.tipo==="conflito"?"❌":"⚠️"} {al.msg}</div>}
+                      {f.estrelas>0&&<div style={{fontSize:10,color:"#f59e0b"}}>{"★".repeat(f.estrelas)}</div>}
+                    </div>
+                    {sel&&<span style={{color:"var(--primary)",flexShrink:0}}>✓</span>}
+                  </button>);
+                };
+                return GRUPOS.map((g,gi)=>(
+                  <React.Fragment key={g.key}>
+                    <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 8px",background:g.bg,border:`1px solid ${g.bord}`,borderRadius:6,marginTop:gi>0?4:0}}>
+                      <span style={{fontSize:11,fontWeight:700,color:g.cor,flex:1,letterSpacing:"0.03em"}}>{g.label}</span>
+                      <span style={{fontSize:10,background:g.bord,color:g.cor,borderRadius:10,padding:"1px 7px",fontWeight:700}}>{g.fls.length}</span>
+                    </div>
+                    {g.fls.map(renderBtn)}
+                  </React.Fragment>
+                ));
+              })()}
             </div>
             {mf.freelancerId&&(()=>{const al=checkDisp(mf.freelancerId,det);if(!al||al.tipo==="disponivel"||al.tipo==="sem_info")return null;return(<div style={{background:al.cor+"15",border:`1px solid ${al.cor}33`,borderRadius:8,padding:"8px 12px",marginBottom:10,fontSize:12,color:al.cor}}>{al.tipo==="conflito"?"❌":al.tipo==="indisponivel"?"🚫":"⚠️"} {al.msg}</div>);})()}
             <div style={{display:"flex",flexDirection:"column",gap:8}}>
@@ -3287,7 +3305,7 @@ function getMaxFl(perfil, userEmail) {
   return p ? p.maxFl : TRIAL_MAX_FL;
 }
 
-function TelaPagamento({perfil,onClose,onPlanoAtivado,userEmail}){
+function TelaPagamento({perfil,onClose,onPlanoAtivado,userEmail,userId}){
   const[selecionado,setSelecionado]=useState(null);
   const[loading,setLoading]=useState(false);
   const[msg,setMsg]=useState(null);
@@ -3297,7 +3315,7 @@ function TelaPagamento({perfil,onClose,onPlanoAtivado,userEmail}){
     setLoading(true);
     setMsg(null);
     try{
-      const SUPA_FUNC_URL = "https://ybnqjvucyutpdjfpkgzg.supabase.co/functions/v1/bright-responder";
+      const SUPA_FUNC_URL = "https://ybnqjvucyutpdjfpkgzg.supabase.co/functions/v1/hyper-worker";
 
       const response = await fetch(SUPA_FUNC_URL, {
         method: "POST",
@@ -3312,6 +3330,7 @@ function TelaPagamento({perfil,onClose,onPlanoAtivado,userEmail}){
           plano_preco: plano.preco,
           plano_desc:  plano.desc,
           user_email:  perfil?.email || "",
+          user_id:     userId || "",
         })
       });
 
@@ -3319,13 +3338,13 @@ function TelaPagamento({perfil,onClose,onPlanoAtivado,userEmail}){
 
       if(data.init_point){
         window.open(data.init_point, "_blank");
-        setMsg({tipo:"info", texto:`Checkout aberto! Após pagar, clique em "✅ Já paguei" abaixo para ativar o plano ${plano.nome}.`});
+        setMsg({tipo:"info", texto:`✅ Janela de pagamento aberta! Conclua o pagamento lá — você será redirecionado automaticamente ao finalizar.`});
       } else {
         throw new Error(data.error || "Sem link de pagamento");
       }
     } catch(e){
       console.error("Pagamento erro:", e);
-      setMsg({tipo:"erro", texto:"Não foi possível abrir o checkout. Tente novamente ou entre em contato."});
+      setMsg({tipo:"erro", texto:"Sem conexão com o servidor. Verifique sua internet e tente novamente."});
     }
     setLoading(false);
   };
@@ -3385,11 +3404,6 @@ function TelaPagamento({perfil,onClose,onPlanoAtivado,userEmail}){
 
         <div style={{display:"flex",gap:10,justifyContent:"flex-end",flexWrap:"wrap"}}>
           {onClose&&<Btn variant="ghost" onClick={onClose}>Agora não</Btn>}
-          {selecionado&&msg?.tipo==="info"&&(
-            <Btn variant="ghost" onClick={()=>onPlanoAtivado(selecionado.id)} style={{borderColor:"var(--success)",color:"var(--success)"}}>
-              ✅ Já paguei
-            </Btn>
-          )}
           <Btn
             style={{background:selecionado?selecionado.cor:"#9CA3AF",border:"none",color:"#fff",opacity:selecionado?1:0.6}}
             onClick={()=>selecionado&&iniciarPagamento(selecionado)}
@@ -3703,6 +3717,7 @@ function App(){
   const[salvando,setSalvando]=useState(false);
   const[mob,setMob]=useState(typeof window!=="undefined"&&window.innerWidth<640);
   const[modalPlano,setModalPlano]=useState(false);
+  const[verificandoPag,setVerificandoPag]=useState(false);
   const saveTimer=useRef({});
 
   const carregarDados=async(userId)=>{
@@ -3789,7 +3804,7 @@ function App(){
 
   const schedSave=(tipo,dados)=>{if(!user)return;clearTimeout(saveTimer.current[tipo]);setSalvando(true);saveTimer.current[tipo]=setTimeout(async()=>{await cloudSave(user.id,tipo,dados);setSalvando(false);},1500);};
 
-  // Ativar plano após pagamento
+  // Ativar plano após confirmação verificada pelo backend
   const onPlanoAtivado=async(planoId)=>{
     if(!user)return;
     const venc=new Date();venc.setDate(venc.getDate()+30);
@@ -3799,17 +3814,39 @@ function App(){
     setModalPlano(false);
   };
 
-  // Detectar retorno do Mercado Pago via URL (roda no App, não no modal)
+  // Verificar pagamento: polling do banco por até 40s (webhook do MP atualiza sf_perfis)
+  const verificarPagamento=async(paymentId,planoId)=>{
+    setVerificandoPag(true);
+    const MAX=13; // ~40s (13 tentativas × 3s)
+    for(let i=0;i<MAX;i++){
+      try{
+        const{data}=await sb.from("sf_perfis").select("plano,plano_vencimento,plano_ativado_em").eq("id",user.id).single();
+        if(data?.plano){
+          // Plano ativado pelo webhook do MP — recarregar perfil
+          setPerfil(prev=>({...prev,plano:data.plano,plano_vencimento:data.plano_vencimento,plano_ativado_em:data.plano_ativado_em}));
+          setVerificandoPag(false);
+          setModalPlano(true);
+          return;
+        }
+      }catch(e){console.warn("Poll perfil:",e);}
+      await new Promise(r=>setTimeout(r,3000));
+    }
+    setVerificandoPag(false);
+    alert(`⏳ Seu pagamento foi recebido, mas a ativação ainda está sendo processada.\n\nAguarde alguns instantes e recarregue a página. Se o plano não aparecer em 5 minutos, entre em contato com o suporte informando:\n\nID do pagamento: ${paymentId}`);
+  };
+
+  // Detectar retorno do Mercado Pago via URL — exige payment_id real do MP
   useEffect(()=>{
     if(!user||!perfil)return;
     const params=new URLSearchParams(window.location.search);
     const planoId=params.get("plano");
-    const status=params.get("status");
-    if(planoId&&status==="approved"){
+    // O MP envia payment_id (ou collection_id) apenas em redirects reais
+    const paymentId=params.get("payment_id")||params.get("collection_id");
+    const status=params.get("status")||params.get("collection_status");
+    if(planoId&&paymentId&&status==="approved"){
       window.history.replaceState({},"",window.location.pathname);
-      onPlanoAtivado(planoId);
-      setModalPlano(true); // abre aba plano para mostrar sucesso
-    } else if(status==="failed"){
+      verificarPagamento(paymentId,planoId);
+    } else if(status==="failure"||status==="rejected"||status==="cancelled"){
       window.history.replaceState({},"",window.location.pathname);
       alert("❌ Pagamento não concluído. Tente novamente.");
     }
@@ -3885,7 +3922,13 @@ function App(){
       </div>
       {mob&&<Sidebar aba={aba} setAba={setAba} mobile onReset={resetarDados} userEmail={user.email} onLogout={logout} onRefresh={refresh}/>}
       {/* Modal de planos */}
-      {modalPlano&&<TelaPagamento perfil={perfil} onClose={()=>setModalPlano(false)} onPlanoAtivado={onPlanoAtivado} userEmail={user.email}/>}
+      {modalPlano&&<TelaPagamento perfil={perfil} onClose={()=>setModalPlano(false)} onPlanoAtivado={onPlanoAtivado} userEmail={user.email} userId={user.id}/>}
+      {/* Overlay de verificação de pagamento */}
+      {verificandoPag&&<div style={{position:"fixed",inset:0,background:"rgba(15,23,42,.85)",zIndex:3000,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:16}}>
+        <div style={{width:48,height:48,border:"4px solid rgba(255,255,255,.2)",borderTopColor:"#fff",borderRadius:"50%",animation:"spin 1s linear infinite"}}/>
+        <div style={{color:"#fff",fontSize:17,fontWeight:700}}>Verificando pagamento…</div>
+        <div style={{color:"rgba(255,255,255,.6)",fontSize:13}}>Confirmando com o Mercado Pago, aguarde</div>
+      </div>}
     </div>
   );
 }
