@@ -3978,7 +3978,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(<ErrorBoundary><App/
 
   // SW inline via Blob — sem arquivo externo necessário
   const swCode = `
-const CACHE = 'sf-v1';
+const CACHE = 'sf-v3';
 self.addEventListener('install', e => {
   self.skipWaiting();
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(['/'])));
