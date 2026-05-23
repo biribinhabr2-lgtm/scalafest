@@ -113,7 +113,7 @@ const cloudSave = async (userId, tipo, dados) => {
 const cloudLoad = async (userId, tipo) => {
   try{
     const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),8000));
-    const query=sb.from("sf_dados").select("dados").eq("user_id",userId).eq("tipo",tipo).single();
+    const query=sb.from("sf_dados").select("dados").eq("user_id",userId).eq("tipo",tipo).maybeSingle();
     const {data,error} = await Promise.race([query,timeout]);
     if(error || !data) return null;
     return data.dados;
@@ -748,11 +748,12 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes}){
                     ?(a,b)=>((b.estrelas||0)-(a.estrelas||0))||a.nome.localeCompare(b.nome,"pt-BR")
                     :(a,b)=>a.nome.localeCompare(b.nome,"pt-BR"));
                 if(flsBase.length===0)return<div style={{color:"var(--text3)",fontSize:12,textAlign:"center",padding:8}}>Nenhum resultado</div>;
-                const getGrupo=f=>{const al=checkDisp(f.id,det);if(!al||al.tipo==="disponivel"||al.tipo==="sem_info")return 0;if(al.tipo==="parcial")return 1;return 2;};
+                const getGrupo=f=>{const al=checkDisp(f.id,det);if(!al||al.tipo==="sem_info")return 3;if(al.tipo==="disponivel")return 0;if(al.tipo==="parcial")return 1;return 2;};
                 const GRUPOS=[
                   {key:"disp",fls:flsBase.filter(f=>getGrupo(f)===0),cor:"#16a34a",bg:"#f0fdf4",bord:"#bbf7d0",label:"✅ Disponível"},
                   {key:"rest",fls:flsBase.filter(f=>getGrupo(f)===1),cor:"#d97706",bg:"#fffbeb",bord:"#fde68a",label:"⚠️ Restrição"},
                   {key:"indisp",fls:flsBase.filter(f=>getGrupo(f)===2),cor:"#dc2626",bg:"#fef2f2",bord:"#fecaca",label:"🚫 Indisponível"},
+                  {key:"sinfo",fls:flsBase.filter(f=>getGrupo(f)===3),cor:"#64748b",bg:"#f8fafc",bord:"#e2e8f0",label:"❔ Não informado"},
                 ].filter(g=>g.fls.length>0);
                 const renderBtn=f=>{
                   const al=checkDisp(f.id,det);const sel=mf.freelancerId===String(f.id);
