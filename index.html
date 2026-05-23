@@ -15,21 +15,7 @@
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 <script>
-window.addEventListener('error',function(e){
-  var el=document.getElementById('root');
-  if(el&&!el.hasChildNodes()){
-    el.innerHTML='<div style="padding:32px;font-family:sans-serif;text-align:center;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f8fafc"><p style="color:#64748b;font-size:14px;margin:0 0 16px">Erro ao iniciar o app</p><button onclick="location.reload()" style="background:#2563eb;color:#fff;border:none;padding:12px 24px;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600">Recarregar</button></div>';
-  }
-});
-setTimeout(function(){
-  var el=document.getElementById('root');
-  if(el&&!el.hasChildNodes()){
-    el.innerHTML='<div style="padding:32px;font-family:sans-serif;text-align:center;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f8fafc"><p style="color:#64748b;font-size:14px;margin:0 0 16px">Carregando...</p><button onclick="location.reload()" style="background:#2563eb;color:#fff;border:none;padding:12px 24px;border-radius:8px;font-size:14px;cursor:pointer;font-weight:600">Recarregar</button></div>';
-  }
-},15000);
-</script>
-<script>
-// Catch any uncaught errors and show them instead of white screen
+// Fallback: captura erros e mostra tela de retry
 window.addEventListener('error', function(e){
   var el = document.getElementById('root');
   if(el && el.innerHTML === '') {
@@ -162,7 +148,7 @@ const dispararNotificacao=(titulo,corpo,tag)=>{
   const isSafari=/^((?!chrome|android).)*safari/i.test(navigator.userAgent);
   if(!isSafari&&window.sfNotify){window.sfNotify(titulo,corpo,tag);return;}
   try{new Notification(titulo,{body:corpo,tag:tag||undefined});}
-  catch(e){console.log("[ScalaFest] Notificação:",titulo);}
+  catch(e){}
 };
 const crossLoad = async (userId, tipo) => {
   try {
@@ -1816,7 +1802,6 @@ function AbaRelatorios({eventos,setEventos,freelancers,funcoes}){
 }
 
 // ── ÁREA DO FUNCIONÁRIO ────────────────────────────────────────────────────────
-const DCORES_F={disponivel:"var(--success)",indisponivel:"var(--danger)",parcial:"var(--warning)"};
 
 function DisponibilidadeFuncionario({user,perfil,disp,setDisp}){
   const hoje=new Date();
@@ -1832,7 +1817,7 @@ function DisponibilidadeFuncionario({user,perfil,disp,setDisp}){
 
   // disp[k] pode ser: "disponivel" | "indisponivel" | {status:"parcial",tipo:"apos"|"antes"|"entre"|"obs",hora,hora2,obs}
   const getStatus=k=>{const v=dispAtual[k];if(!v)return null;if(typeof v==="string")return v;return v?.status||"parcial";};
-  const getCor=k=>{const s=getStatus(k);return DCORES_F[s]||null;};
+  const getCor=k=>{const s=getStatus(k);return DCORES[s]||null;};
   const getLabel=k=>{
     const v=dispAtual[k];
     if(!v||typeof v==="string")return null;
@@ -3988,7 +3973,6 @@ ReactDOM.createRoot(document.getElementById("root")).render(<ErrorBoundary><App/
   // Safari bloqueia SW de Blob URLs — detectar e pular
   const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
   if (isSafari) {
-    console.log('[ScalaFest] Safari detectado — usando notificações diretas sem SW');
     return;
   }
 
@@ -4037,7 +4021,6 @@ self.addEventListener('notificationclick', e => {
   navigator.serviceWorker.register(swUrl, {scope:'/'})
     .then(reg => {
       window._swReg = reg;
-      console.log('[ScalaFest] SW registrado');
 
       // Instalar prompt PWA
       window.addEventListener('beforeinstallprompt', e => {
@@ -4046,7 +4029,7 @@ self.addEventListener('notificationclick', e => {
         window.dispatchEvent(new Event('sf-instalavel'));
       });
     })
-    .catch(err => console.log('[ScalaFest] SW erro:', err));
+    .catch(()=>{});
 })();
 
 // Disparar notificação via SW (funciona com aba em background no Android)
