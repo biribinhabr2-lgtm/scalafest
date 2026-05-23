@@ -3968,16 +3968,10 @@ ReactDOM.createRoot(document.getElementById("root")).render(<ErrorBoundary><App/
   appleLink.rel = 'apple-touch-icon'; appleLink.href = iconSvg;
   document.head.appendChild(appleLink);
 
-  // SW via Blob não funciona em todos os ambientes (Vercel, Safari) — verificar suporte
+  // SW via Blob só funciona em localhost — Vercel e outros hosts bloqueiam blob: para SW
   if (!('serviceWorker' in navigator)) return;
-  const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
-  if (isSafari) return;
-  // Testar se blob: URLs são permitidos antes de registrar
-  try { new URL('blob:test'); } catch {}
-  // Só registrar em ambientes que suportam (localhost ou PWA nativo)
   const isLocalhost = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
-  const isHttps = location.protocol === 'https:';
-  if (!isLocalhost && !isHttps) return;
+  if (!isLocalhost) return; // produção usa Notification API direta, sem SW
 
   // SW inline via Blob — sem arquivo externo necessário
   const swCode = `
