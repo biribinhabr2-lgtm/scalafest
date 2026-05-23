@@ -152,7 +152,7 @@ const dispararNotificacao=(titulo,corpo,tag)=>{
 };
 const crossLoad = async (userId, tipo) => {
   try {
-    const {data,error} = await sb.from("sf_dados").select("dados").eq("user_id",userId).eq("tipo",tipo).single();
+    const {data,error} = await sb.from("sf_dados").select("dados").eq("user_id",userId).eq("tipo",tipo).maybeSingle();
     if(error || !data) return null;
     return data.dados;
   } catch { return null; }
