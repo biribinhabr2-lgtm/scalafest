@@ -455,17 +455,19 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes}){
   const fl=id=>freelancers.find(f=>f.id===id);
   const det=detalhe?eventos.find(e=>e.id===detalhe):null;
 
-  // Carregar disponibilidade de todos os freelancers com userId (1x ao montar)
+  // Carregar disponibilidade de todos os freelancers com userId
   useEffect(()=>{
     const flsComId=freelancers.filter(f=>f.userId);
     if(!flsComId.length)return;
-    Promise.all(flsComId.map(f=>crossLoad(f.userId,"disponibilidade").then(d=>({fid:f.id,d:d||{}}))))
-      .then(results=>{
-        const map={};
-        results.forEach(({fid,d})=>{map[fid]=d;});
-        setDispCloud(map);
-      }).catch(()=>{});
-  },[freelancers.map(f=>f.id).join(",")]);
+    Promise.all(flsComId.map(f=>
+      crossLoad(f.userId,"disponibilidade").then(d=>({fid:f.id,d:d||{}}))
+    )).then(results=>{
+      const map={};
+      results.forEach(({fid,d})=>{map[fid]=d;});
+      setDispCloud(map);
+    }).catch(()=>{});
+  // eslint-disable-next-line
+  },[freelancers.map(f=>f.id+":"+(f.userId||"")).join(",")]);
 
   // Carregar confirmacoes de todos os freelancers com userId ao abrir detalhe
   useEffect(()=>{
@@ -738,45 +740,51 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes}){
               placeholder="🔍 Buscar pelo nome..."
               style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:8,padding:"7px 12px",color:"var(--text)",fontSize:12,outline:"none",fontFamily:"inherit",width:"100%",marginBottom:8,boxSizing:"border-box"}}
             />
-            <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:240,overflowY:"auto",marginBottom:10}}>
+            <div style={{display:"flex",flexDirection:"column",gap:3,maxHeight:260,overflowY:"auto",marginBottom:10}}>
               {(()=>{
                 const todosForaEquipe=freelancers.filter(f=>!det.equipe.find(m=>m.freelancerId===f.id));
                 if(todosForaEquipe.length===0)return<div style={{color:"var(--text3)",fontSize:12,textAlign:"center",padding:8}}>Todos já escalados!</div>;
                 const flsBase=[...todosForaEquipe]
-                  .filter(f=>(mf.busca||"")===""||f.nome.toLowerCase().includes((mf.busca||"").toLowerCase()))
-                  .sort(mf.sortEstrelas
-                    ?(a,b)=>((b.estrelas||0)-(a.estrelas||0))||a.nome.localeCompare(b.nome,"pt-BR")
-                    :(a,b)=>a.nome.localeCompare(b.nome,"pt-BR"));
+                  .filter(f=>(mf.busca||"")===""||f.nome.toLowerCase().includes((mf.busca||"").toLowerCase()));
                 if(flsBase.length===0)return<div style={{color:"var(--text3)",fontSize:12,textAlign:"center",padding:8}}>Nenhum resultado</div>;
-                const getGrupo=f=>{const al=checkDisp(f.id,det);if(!al||al.tipo==="sem_info")return 3;if(al.tipo==="disponivel")return 0;if(al.tipo==="parcial")return 1;return 2;};
-                const GRUPOS=[
-                  {key:"disp",fls:flsBase.filter(f=>getGrupo(f)===0),cor:"#16a34a",bg:"#f0fdf4",bord:"#bbf7d0",label:"✅ Disponível"},
-                  {key:"rest",fls:flsBase.filter(f=>getGrupo(f)===1),cor:"#d97706",bg:"#fffbeb",bord:"#fde68a",label:"⚠️ Restrição"},
-                  {key:"indisp",fls:flsBase.filter(f=>getGrupo(f)===2),cor:"#dc2626",bg:"#fef2f2",bord:"#fecaca",label:"🚫 Indisponível"},
-                  {key:"sinfo",fls:flsBase.filter(f=>getGrupo(f)===3),cor:"#64748b",bg:"#f8fafc",bord:"#e2e8f0",label:"❔ Não informado"},
-                ].filter(g=>g.fls.length>0);
-                const renderBtn=f=>{
-                  const al=checkDisp(f.id,det);const sel=mf.freelancerId===String(f.id);
-                  const isIndisp=al?.tipo==="indisponivel"||al?.tipo==="conflito";
-                  return(<button key={f.id} onClick={()=>setMf(fm=>({...fm,freelancerId:String(f.id)}))} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 10px",background:sel?"var(--primary-light)":isIndisp?"#fef2f2":"var(--card)",border:`1px solid ${sel?"var(--primary)":al?.cor?al.cor+"55":"var(--border)"}`,borderRadius:8,cursor:"pointer",textAlign:"left",width:"100%",fontFamily:"inherit"}}>
-                    <Avatar nome={f.nome} size={26}/>
-                    <div style={{flex:1,overflow:"hidden"}}>
-                      <div style={{fontSize:12,fontWeight:600,color:isIndisp?"#dc2626":"var(--text)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{f.nome}</div>
-                      {al&&al.tipo!=="sem_info"&&<div style={{fontSize:10,color:al.cor,marginTop:1}}>{al.tipo==="disponivel"?"✅":al.tipo==="indisponivel"?"🚫":al.tipo==="conflito"?"❌":"⚠️"} {al.msg}</div>}
-                      {f.estrelas>0&&<div style={{fontSize:10,color:"#f59e0b"}}>{"★".repeat(f.estrelas)}</div>}
-                    </div>
-                    {sel&&<span style={{color:"var(--primary)",flexShrink:0}}>✓</span>}
-                  </button>);
-                };
-                return GRUPOS.map((g,gi)=>(
-                  <React.Fragment key={g.key}>
-                    <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 8px",background:g.bg,border:`1px solid ${g.bord}`,borderRadius:6,marginTop:gi>0?4:0}}>
-                      <span style={{fontSize:11,fontWeight:700,color:g.cor,flex:1,letterSpacing:"0.03em"}}>{g.label}</span>
-                      <span style={{fontSize:10,background:g.bord,color:g.cor,borderRadius:10,padding:"1px 7px",fontWeight:700}}>{g.fls.length}</span>
-                    </div>
-                    {g.fls.map(renderBtn)}
-                  </React.Fragment>
-                ));
+                // 0=disponivel 1=parcial 2=indisp/conflito 3=sem_info
+                const getOrdem=f=>{const al=checkDisp(f.id,det);if(!al||al.tipo==="sem_info")return 3;if(al.tipo==="disponivel")return 0;if(al.tipo==="parcial")return 1;return 2;};
+                const sorted=[...flsBase].sort((a,b)=>{
+                  const d=getOrdem(a)-getOrdem(b);
+                  if(d!==0)return d;
+                  return mf.sortEstrelas?((b.estrelas||0)-(a.estrelas||0))||a.nome.localeCompare(b.nome,"pt-BR"):a.nome.localeCompare(b.nome,"pt-BR");
+                });
+                const CORES=[
+                  {bg:"#f0fdf4",bord:"#16a34a",txt:"#15803d",icon:"✅"},  // disponivel
+                  {bg:"#fffbeb",bord:"#d97706",txt:"#b45309",icon:"⚠️"},  // parcial
+                  {bg:"#fef2f2",bord:"#dc2626",txt:"#b91c1c",icon:"🚫"},  // indisp
+                  {bg:"var(--card)",bord:"var(--border)",txt:"var(--text3)",icon:""},// sem_info
+                ];
+                return sorted.map(f=>{
+                  const al=checkDisp(f.id,det);
+                  const ordem=getOrdem(f);
+                  const c=CORES[ordem];
+                  const sel=mf.freelancerId===String(f.id);
+                  return(
+                    <button key={f.id} onClick={()=>setMf(fm=>({...fm,freelancerId:String(f.id)}))}
+                      style={{display:"flex",alignItems:"center",gap:8,padding:"8px 10px",
+                        background:sel?"var(--primary-light)":c.bg,
+                        border:`2px solid ${sel?"var(--primary)":c.bord}`,
+                        borderRadius:8,cursor:"pointer",textAlign:"left",width:"100%",fontFamily:"inherit",transition:"border .1s"}}>
+                      <Avatar nome={f.nome} size={26}/>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{fontSize:12,fontWeight:700,color:sel?"var(--primary)":ordem<3?c.txt:"var(--text)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>
+                          {ordem<3&&<span style={{marginRight:4}}>{c.icon}</span>}{f.nome}
+                        </div>
+                        {al&&al.tipo!=="sem_info"&&al.tipo!=="disponivel"&&(
+                          <div style={{fontSize:10,color:c.txt,marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{al.msg}</div>
+                        )}
+                        {f.estrelas>0&&<div style={{fontSize:10,color:"#f59e0b"}}>{"★".repeat(f.estrelas)}</div>}
+                      </div>
+                      {sel&&<span style={{color:"var(--primary)",flexShrink:0,fontSize:14}}>✓</span>}
+                    </button>
+                  );
+                });
               })()}
             </div>
             {mf.freelancerId&&(()=>{const al=checkDisp(mf.freelancerId,det);if(!al||al.tipo==="disponivel"||al.tipo==="sem_info")return null;return(<div style={{background:al.cor+"15",border:`1px solid ${al.cor}33`,borderRadius:8,padding:"8px 12px",marginBottom:10,fontSize:12,color:al.cor}}>{al.tipo==="conflito"?"❌":al.tipo==="indisponivel"?"🚫":"⚠️"} {al.msg}</div>);})()}
