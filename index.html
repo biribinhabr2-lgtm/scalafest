@@ -113,10 +113,11 @@ const cloudSave = async (userId, tipo, dados) => {
 const cloudLoad = async (userId, tipo) => {
   try{
     const timeout=new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")),8000));
-    const query=sb.from("sf_dados").select("dados").eq("user_id",userId).eq("tipo",tipo).maybeSingle();
+    const query=sb.from("sf_dados").select("dados").eq("user_id",userId).eq("tipo",tipo)
+      .order("updated_at",{ascending:false}).limit(1);
     const {data,error} = await Promise.race([query,timeout]);
-    if(error || !data) return null;
-    return data.dados;
+    if(error || !data?.length) return null;
+    return data[0].dados;
   }catch{ return null; }
 };
 // Salva/carrega interações de treinamento (confirmações + comentários) por usuário
@@ -152,9 +153,10 @@ const dispararNotificacao=(titulo,corpo,tag)=>{
 };
 const crossLoad = async (userId, tipo) => {
   try {
-    const {data,error} = await sb.from("sf_dados").select("dados").eq("user_id",userId).eq("tipo",tipo).maybeSingle();
-    if(error || !data) return null;
-    return data.dados;
+    const {data,error} = await sb.from("sf_dados").select("dados").eq("user_id",userId).eq("tipo",tipo)
+      .order("updated_at",{ascending:false}).limit(1);
+    if(error || !data?.length) return null;
+    return data[0].dados;
   } catch { return null; }
 };
 
@@ -455,19 +457,35 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes}){
   const fl=id=>freelancers.find(f=>f.id===id);
   const det=detalhe?eventos.find(e=>e.id===detalhe):null;
 
-  // Carregar disponibilidade de todos os freelancers com userId
+  // Carregar disponibilidade de todos os freelancers via sf_perfis (fallback por nome se sem userId)
   useEffect(()=>{
-    const flsComId=freelancers.filter(f=>f.userId);
-    if(!flsComId.length)return;
-    Promise.all(flsComId.map(f=>
-      crossLoad(f.userId,"disponibilidade").then(d=>({fid:f.id,d:d||{}}))
-    )).then(results=>{
+    if(!freelancers.length)return;
+    const norm=s=>s?.normalize("NFD").replace(/[̀-ͯ]/g,"").trim().toLowerCase()||"";
+    const load=async()=>{
+      // 1. Tentar resolver userId pelo sf_perfis (admin_id = admin atual)
+      const{data:{session}}=await sb.auth.getSession();
+      const adminId=session?.user?.id;
+      let nomeMap={};
+      if(adminId){
+        const{data:perfis}=await sb.from("sf_perfis").select("id,nome").eq("admin_id",adminId);
+        (perfis||[]).forEach(p=>{if(p.nome)nomeMap[norm(p.nome)]=p.id;});
+      }
+      // 2. Para cada freelancer, resolver uid (userId salvo > lookup por nome)
+      const resolvidos=freelancers.map(f=>({
+        fid:f.id,
+        uid:f.userId||(nomeMap[norm(f.nome)]||null)
+      })).filter(x=>x.uid);
+      if(!resolvidos.length)return;
+      // 3. Carregar disponibilidade de cada um
+      const results=await Promise.all(resolvidos.map(({fid,uid})=>
+        crossLoad(uid,"disponibilidade").then(d=>({fid,d:d||{}}))
+      ));
       const map={};
       results.forEach(({fid,d})=>{map[fid]=d;});
       setDispCloud(map);
-    }).catch(()=>{});
-  // eslint-disable-next-line
-  },[freelancers.map(f=>f.id+":"+(f.userId||"")).join(",")]);
+    };
+    load().catch(()=>{});
+  },[freelancers.map(f=>f.id).join(",")]);
 
   // Carregar confirmacoes de todos os freelancers com userId ao abrir detalhe
   useEffect(()=>{
@@ -490,7 +508,9 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes}){
     const fidNum=+fid;
     const freela=freelancers.find(f=>f.id===fidNum);
     // Prioridade: disponibilidade marcada pelo próprio freelancer (cloud) > admin
-    const dispFreela=freela?.userId ? (dispCloud[fidNum]||{}) : (disponibilidade[fidNum]||{});
+    // Prioridade: dados do próprio freelancer (dispCloud) > dados marcados pelo admin
+    const cloudData=dispCloud[fidNum];
+    const dispFreela=(cloudData&&Object.keys(cloudData).length>0)?cloudData:(disponibilidade[fidNum]||{});
     const d=dispFreela[ev.data];
     const hMin=h=>{if(!h)return null;const[hh,mm]=h.split(":");return+hh*60+(+mm||0);};
     const evIni=hMin(ev.horaInicio);const evFim=hMin(ev.horaFim);
