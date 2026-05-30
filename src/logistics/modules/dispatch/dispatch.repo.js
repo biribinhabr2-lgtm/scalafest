@@ -11,6 +11,22 @@ const SELECT_FULL = `
   ponto_retorno:sf_pontos_encontro!ponto_retorno_id(nome,endereco,lat,lng)
 `.trim();
 
+// Colunas reais da tabela sf_rotas — evita que campos de JOIN (motorista, veiculo…)
+// sejam enviados ao Supabase e causem erro "column not found".
+const COLUNAS = new Set([
+  'nome_evento','endereco_evento','data_evento','horario_inicio','horario_fim',
+  'motorista_id','veiculo_id','ponto_saida_id','ponto_retorno_id',
+  'obs_logistica','observacoes','evento_ref_id',
+  'tipo_rota','paradas_extras',
+  'status','confirmada_adm','confirmada_em',
+  'distancia_km','duracao_min',
+  'horario_saida_calculado','horario_chegada_calculado',
+  'horario_saida_real','horario_chegada_real','horario_retorno_real',
+]);
+
+const limpar = (obj) =>
+  Object.fromEntries(Object.entries(obj).filter(([k]) => COLUNAS.has(k)));
+
 module.exports = {
   listByDate: (adminId, data) =>
     sb.from(T).select(SELECT_FULL).eq('admin_id', adminId).eq('data_evento', data).order('horario_inicio'),
@@ -25,10 +41,10 @@ module.exports = {
     sb.from(T).select(SELECT_FULL).eq('id', id).single(),
 
   create: (adminId, data) =>
-    sb.from(T).insert({ ...data, admin_id: adminId, updated_at: new Date().toISOString() }).select(SELECT_FULL).single(),
+    sb.from(T).insert({ ...limpar(data), admin_id: adminId, updated_at: new Date().toISOString() }).select(SELECT_FULL).single(),
 
   update: (id, adminId, data) =>
-    sb.from(T).update({ ...data, updated_at: new Date().toISOString() }).eq('id', id).eq('admin_id', adminId).select(SELECT_FULL).single(),
+    sb.from(T).update({ ...limpar(data), updated_at: new Date().toISOString() }).eq('id', id).eq('admin_id', adminId).select(SELECT_FULL).single(),
 
   updateStatus: (id, status) =>
     sb.from(T).update({ status, updated_at: new Date().toISOString() }).eq('id', id),
