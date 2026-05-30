@@ -13,6 +13,7 @@ r.get('/:id',               c.get);
 r.put('/:id',               c.update);
 r.delete('/:id',            c.remove);
 r.post('/:id/calcular',     c.calcRoute);
+r.post('/:id/confirmar',    c.confirmar);
 r.get('/:id/navegar',       c.navUrl);
 r.post('/:id/status',       c.updateStatus);
 r.get('/:id/historico',     c.history);

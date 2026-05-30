@@ -77,6 +77,10 @@ module.exports = {
     ok(res, await svc.dashboard(req.adminId));
   }),
 
+  confirmar: wrap(async (req, res) => {
+    ok(res, await svc.confirmar(req.params.id, req.adminId));
+  }),
+
   // Driver endpoint — uses motoristaId from token
   driverRoutes: wrap(async (req, res) => {
     const data = req.query.data || new Date().toISOString().slice(0, 10);

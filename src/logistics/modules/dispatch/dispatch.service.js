@@ -61,6 +61,7 @@ async function calcularRota(id, adminId) {
 
 /**
  * Generates the Google Maps navigation URL for the driver.
+ * Includes all intermediate stops (paradas_extras) and handles tipo_rota.
  */
 async function urlNavegacao(id) {
   const { data, error } = await repo.get(id);
@@ -68,12 +69,32 @@ async function urlNavegacao(id) {
 
   const origem  = data.ponto_saida?.endereco;
   const destino = data.endereco_evento;
-  const retorno = data.ponto_retorno?.endereco;
 
-  if (!origem || !destino) throw new Error('Ponto de saída ou destino não configurados.');
+  if (!destino) throw new Error('Endereço do evento não configurado.');
 
-  const waypoints = retorno && data.precisa_retorno ? [] : [];
-  return { url: maps.mapsUrl(origem, destino, waypoints) };
+  // Collect intermediate waypoints from paradas_extras
+  const paradas = Array.isArray(data.paradas_extras) ? data.paradas_extras : [];
+  const waypointsMeio = paradas.map(p => p.endereco).filter(Boolean);
+
+  // Build full stop sequence
+  const pontos = [];
+  if (origem) pontos.push(origem);
+  pontos.push(...waypointsMeio);
+  pontos.push(destino);
+
+  // For non-ida_fica routes: append return point after destination
+  if (data.tipo_rota !== 'ida_fica') {
+    const retorno = data.ponto_retorno?.endereco || origem;
+    if (retorno && retorno !== pontos[pontos.length - 1]) pontos.push(retorno);
+  }
+
+  // Single point fallback (no origin configured)
+  if (pontos.length < 2) {
+    return { url: `https://www.google.com/maps/search/${encodeURIComponent(destino)}` };
+  }
+
+  const url = `https://www.google.com/maps/dir/${pontos.map(encodeURIComponent).join('/')}`;
+  return { url };
 }
 
 /**
@@ -157,4 +178,18 @@ async function dashboard(adminId) {
   };
 }
 
-module.exports = { criar, calcularRota, urlNavegacao, atualizarStatus, otimizarDia, dashboard };
+/**
+ * Admin confirms a route — sets confirmada_adm = true.
+ * Driver app blocks status transitions until route is confirmed.
+ */
+async function confirmar(id, adminId) {
+  const { data, error } = await repo.update(id, adminId, {
+    confirmada_adm: true,
+    confirmada_em: new Date().toISOString(),
+  });
+  if (error) throw new Error(error.message);
+  await repo.addHistory(id, 'confirmada_adm', { registrado_por: 'admin' });
+  return data;
+}
+
+module.exports = { criar, calcularRota, urlNavegacao, atualizarStatus, confirmar, otimizarDia, dashboard };
