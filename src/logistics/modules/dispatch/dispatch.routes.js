@@ -11,6 +11,7 @@ r.get('/',                  c.list);
 r.post('/',                 c.create);
 r.get('/:id',               c.get);
 r.put('/:id',               c.update);
+r.delete('/antigas',        c.limparAntigas);
 r.delete('/:id',            c.remove);
 r.post('/:id/calcular',     c.calcRoute);
 r.post('/:id/confirmar',    c.confirmar);

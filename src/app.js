@@ -39,9 +39,9 @@ const ROTAS_PUBLICAS = [
   { method: 'GET',  path: '/' },
   { method: 'GET',  path: '/health' },
   { method: 'GET',  path: '/api/tunnel-url' },
+  { method: 'POST', path: '/api/whatsapp/conectar' },
   { method: 'GET',  path: '/api/whatsapp/status' },
   { method: 'GET',  path: '/api/whatsapp/qr' },
-  { method: 'GET',  path: '/api/whatsapp/grupos' },
   { method: 'POST', path: '/api/logistics/drivers/auth/login' },
 ];
 

@@ -2,7 +2,7 @@
 
 const escalaSvc  = require('../services/escala.service');
 const enviosRepo = require('../repositories/envios.repo');
-const waClient   = require('../whatsapp/client');
+const sessionMgr = require('../whatsapp/sessionManager');
 
 /**
  * POST /api/escala/enviar-dia
@@ -20,9 +20,10 @@ async function enviarEscalaDia(req, res) {
     });
   }
 
-  if (!waClient.connected()) {
+  const sess = sessionMgr.getSession(adminId);
+  if (!sess?.connected) {
     return res.status(503).json({
-      error: 'WhatsApp não conectado. Abra http://localhost:3001 e escaneie o QR.',
+      error: 'WhatsApp não conectado. Configure o WhatsApp no painel e escaneie o QR.',
     });
   }
 

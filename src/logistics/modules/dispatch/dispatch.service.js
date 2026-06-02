@@ -192,4 +192,15 @@ async function confirmar(id, adminId) {
   return data;
 }
 
-module.exports = { criar, calcularRota, urlNavegacao, atualizarStatus, confirmar, otimizarDia, dashboard };
+/**
+ * Remove todas as rotas de dias anteriores ao dia atual.
+ * Mantém apenas rotas de hoje em diante.
+ */
+async function limparAntigas(adminId) {
+  const hoje = new Date().toISOString().slice(0, 10);
+  const { data, error } = await repo.deleteAntigas(adminId, hoje);
+  if (error) throw new Error(error.message);
+  return { removidas: Array.isArray(data) ? data.length : 0 };
+}
+
+module.exports = { criar, calcularRota, urlNavegacao, atualizarStatus, confirmar, limparAntigas, otimizarDia, dashboard };

@@ -52,6 +52,10 @@ module.exports = {
   remove: (id, adminId) =>
     sb.from(T).delete().eq('id', id).eq('admin_id', adminId),
 
+  // Remove todas as rotas de dias anteriores à data informada
+  deleteAntigas: (adminId, antes) =>
+    sb.from(T).delete().eq('admin_id', adminId).lt('data_evento', antes).select('id'),
+
   addHistory: (rotaId, status, extra = {}) =>
     sb.from(TH).insert({ rota_id: rotaId, status, ...extra }),
 

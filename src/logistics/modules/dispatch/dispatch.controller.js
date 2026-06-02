@@ -81,6 +81,10 @@ module.exports = {
     ok(res, await svc.confirmar(req.params.id, req.adminId));
   }),
 
+  limparAntigas: wrap(async (req, res) => {
+    ok(res, await svc.limparAntigas(req.adminId));
+  }),
+
   // Driver endpoint — uses motoristaId from token
   driverRoutes: wrap(async (req, res) => {
     const data = req.query.data || new Date().toISOString().slice(0, 10);

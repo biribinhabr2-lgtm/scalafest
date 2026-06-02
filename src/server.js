@@ -2,8 +2,8 @@
 
 require('dotenv').config();
 
-const app      = require('./app');
-const waClient = require('./whatsapp/client');
+const app        = require('./app');
+const sessionMgr = require('./whatsapp/sessionManager');
 const localtunnel = require('localtunnel');
 
 const PORT = process.env.PORT || 3001;
@@ -53,10 +53,9 @@ app.listen(PORT, async () => {
   }
 });
 
-// ─── Inicia a conexão com o WhatsApp ──────────────────────────────────────
-console.log('[WhatsApp] Iniciando conexão...');
-waClient.connect().catch(err => {
-  console.error('[WhatsApp] Falha ao iniciar:', err.message);
+// ─── Restaura sessões WhatsApp existentes (multi-session) ─────────────────────
+sessionMgr.restoreExistingSessions().catch(err => {
+  console.error('[WhatsApp] Erro ao restaurar sessões:', err.message);
 });
 
 // ─── Graceful shutdown ─────────────────────────────────────────────────────

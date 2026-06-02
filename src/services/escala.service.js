@@ -57,7 +57,7 @@ async function enviarEscalaDia(adminId, data, grupoJid) {
   const { texto, mentions } = buildEscalaDiariaGrupo(data, eventosDoDia, flById);
 
   // ── 6. Enviar para o grupo ───────────────────────────────────────────────────
-  const resultado = await waSvc.enviarMensagem(grupoJid, texto, mentions);
+  const resultado = await waSvc.enviarMensagem(adminId, grupoJid, texto, mentions);
 
   // ── 7. Registrar auditoria ───────────────────────────────────────────────────
   await enviosRepo.salvarEnvios([{
