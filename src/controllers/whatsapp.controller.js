@@ -19,7 +19,12 @@ async function conectar(req, res) {
     const adminId = adminIdFrom(req);
     if (!adminId) return res.status(400).json({ error: 'Header x-admin-id obrigatório.' });
 
-    await sessionMgr.createSession(adminId);
+    // Fire-and-forget: retorna imediatamente ao frontend.
+    // O socket Baileys inicializa em background; o polling detecta quando o QR fica pronto.
+    sessionMgr.createSession(adminId).catch(err =>
+      console.error(`[WA][${adminId}] Erro ao criar sessão:`, err.message)
+    );
+
     res.json({ ok: true, mensagem: 'Iniciando conexão — aguarde o QR code.' });
   } catch (err) {
     res.status(500).json({ error: err.message });

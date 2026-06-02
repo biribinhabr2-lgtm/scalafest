@@ -56,7 +56,13 @@ function getSession(adminId) {
  */
 async function createSession(adminId) {
   const existing = sessions.get(adminId);
-  if (existing?.connected || existing?.connecting) return existing;
+
+  // Só pula se já estiver CONECTADO. Se estiver apenas "connecting" pode estar travado —
+  // mata o socket antigo e recomeça.
+  if (existing?.connected) return existing;
+  if (existing?.sock) {
+    try { existing.sock.end(undefined); } catch { /* ignora */ }
+  }
 
   // Inicializa (ou reinicializa) o estado da sessão
   const sess = {
@@ -72,7 +78,19 @@ async function createSession(adminId) {
   ensureDir(dir);
 
   const { state, saveCreds } = await useMultiFileAuthState(dir);
-  const { version }          = await fetchLatestBaileysVersion();
+
+  // fetchLatestBaileysVersion() faz uma request à rede. Se travar, usa versão embutida.
+  let version;
+  try {
+    const result = await Promise.race([
+      fetchLatestBaileysVersion(),
+      new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), 8_000)),
+    ]);
+    version = result.version;
+  } catch {
+    version = [2, 3000, 1015901307]; // versão de fallback conhecida
+    console.warn(`[WA][${adminId}] fetchLatestBaileysVersion falhou — usando versão de fallback.`);
+  }
 
   const sock = makeWASocket({
     version,
@@ -85,18 +103,29 @@ async function createSession(adminId) {
 
   sess.sock = sock;
 
+  // Timeout de segurança: se em 45s nenhum QR nem conexão aparecer, destrói a sessão
+  const initTimeout = setTimeout(() => {
+    if (!sess.connected && !sess.qrDataUrl) {
+      console.warn(`[WA][${adminId}] Timeout: QR não gerado em 45s. Destruindo sessão.`);
+      try { sock.end(undefined); } catch { /* ignora */ }
+      sessions.delete(adminId);
+    }
+  }, 45_000);
+
   // Persiste credenciais sempre que atualizarem
   sock.ev.on('creds.update', saveCreds);
 
   // Monitora eventos de conexão
   sock.ev.on('connection.update', async ({ connection, lastDisconnect, qr }) => {
     if (qr) {
+      clearTimeout(initTimeout);
       sess.qrDataUrl  = await QRCode.toDataURL(qr);
       sess.connecting = false;
       console.log(`[WA][${adminId}] QR gerado — aguardando escaneio.`);
     }
 
     if (connection === 'open') {
+      clearTimeout(initTimeout);
       sess.qrDataUrl  = null;
       sess.connected  = true;
       sess.connecting = false;
