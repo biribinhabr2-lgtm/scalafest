@@ -4,19 +4,24 @@
  * sessionManager.js
  *
  * Gerencia múltiplas sessões Baileys, uma por adminId.
- * Cada sessão tem seu próprio socket, QR, estado de conexão e pasta de auth.
+ * Credenciais são persistidas no Supabase (tabela wa_sessions)
+ * para sobreviver a reinicializações do servidor no Railway.
  */
 
 const {
   default: makeWASocket,
-  useMultiFileAuthState,
+  Browsers,
   DisconnectReason,
   fetchLatestBaileysVersion,
 } = require('@whiskeysockets/baileys');
 const QRCode = require('qrcode');
 const pino   = require('pino');
-const path   = require('path');
-const fs     = require('fs');
+
+const {
+  useSupabaseAuthState,
+  clearAuthState,
+  listSavedAdminIds,
+} = require('./supabaseAuthState');
 
 const logger = pino({ level: 'silent' });
 
@@ -28,20 +33,11 @@ const logger = pino({ level: 'silent' });
  *   qrDataUrl:   string | null
  *   connected:   boolean
  *   connecting:  boolean
- *   phone:       string | null   — número conectado (sem país nem @)
+ *   phone:       string | null   — número conectado
+ *   retryCount:  number          — contador de tentativas de reconexão
  * }
  */
 const sessions = new Map();
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function authDir(adminId) {
-  return path.resolve(__dirname, '../../auth_state', adminId);
-}
-
-function ensureDir(dir) {
-  fs.mkdirSync(dir, { recursive: true });
-}
 
 // ─── API ──────────────────────────────────────────────────────────────────────
 
@@ -52,34 +48,35 @@ function getSession(adminId) {
 
 /**
  * Cria (ou reconecta) a sessão Baileys de um admin.
- * Idempotente: se já estiver conectada ou conectando, retorna a sessão existente.
+ * Idempotente: se já estiver conectada, retorna a sessão existente.
  */
 async function createSession(adminId) {
   const existing = sessions.get(adminId);
 
-  // Só pula se já estiver CONECTADO. Se estiver apenas "connecting" pode estar travado —
-  // mata o socket antigo e recomeça.
+  // Só pula se já estiver CONECTADO. Se estiver apenas "connecting" pode estar
+  // travado — encerra o socket antigo e recomeça.
   if (existing?.connected) return existing;
   if (existing?.sock) {
     try { existing.sock.end(undefined); } catch { /* ignora */ }
   }
 
   // Inicializa (ou reinicializa) o estado da sessão
+  const retryCount = (existing?.retryCount ?? 0);
   const sess = {
     sock:       null,
     qrDataUrl:  null,
     connected:  false,
     connecting: true,
     phone:      null,
+    retryCount,
   };
   sessions.set(adminId, sess);
 
-  const dir = authDir(adminId);
-  ensureDir(dir);
+  // Carrega credenciais do Supabase (ou inicializa novas)
+  const { state, saveCreds } = await useSupabaseAuthState(adminId);
 
-  const { state, saveCreds } = await useMultiFileAuthState(dir);
-
-  // fetchLatestBaileysVersion() faz uma request à rede. Se travar, usa versão embutida.
+  // fetchLatestBaileysVersion() faz uma request à rede.
+  // Limita a 8 s para não bloquear indefinidamente; usa versão de fallback.
   let version;
   try {
     const result = await Promise.race([
@@ -89,28 +86,35 @@ async function createSession(adminId) {
     version = result.version;
   } catch {
     version = [2, 3000, 1015901307]; // versão de fallback conhecida
-    console.warn(`[WA][${adminId}] fetchLatestBaileysVersion falhou — usando versão de fallback.`);
+    console.warn(`[WA][${adminId}] fetchLatestBaileysVersion falhou — usando fallback.`);
   }
 
   const sock = makeWASocket({
     version,
-    auth:  state,
+    auth:   state,
     logger,
-    syncFullHistory:             false,
-    markOnlineOnConnect:         false,
+    // Identifica como Chrome no Ubuntu — reduz chance de bloqueio pelo WA
+    browser:                        Browsers.ubuntu('Chrome'),
+    syncFullHistory:                false,
+    markOnlineOnConnect:            false,
     generateHighQualityLinkPreview: false,
+    // Timeouts mais longos para redes instáveis (Railway)
+    connectTimeoutMs:               60_000,
+    defaultQueryTimeoutMs:          60_000,
+    keepAliveIntervalMs:            15_000,
+    retryRequestDelayMs:            2_000,
   });
 
   sess.sock = sock;
 
-  // Timeout de segurança: se em 45s nenhum QR nem conexão aparecer, destrói a sessão
+  // Timeout de segurança: se em 60 s nenhum QR nem conexão aparecer, destrói a sessão
   const initTimeout = setTimeout(() => {
     if (!sess.connected && !sess.qrDataUrl) {
-      console.warn(`[WA][${adminId}] Timeout: QR não gerado em 45s. Destruindo sessão.`);
+      console.warn(`[WA][${adminId}] Timeout: QR não gerado em 60s. Destruindo sessão.`);
       try { sock.end(undefined); } catch { /* ignora */ }
       sessions.delete(adminId);
     }
-  }, 45_000);
+  }, 60_000);
 
   // Persiste credenciais sempre que atualizarem
   sock.ev.on('creds.update', saveCreds);
@@ -121,6 +125,7 @@ async function createSession(adminId) {
       clearTimeout(initTimeout);
       sess.qrDataUrl  = await QRCode.toDataURL(qr);
       sess.connecting = false;
+      sess.retryCount = 0; // reset ao mostrar novo QR
       console.log(`[WA][${adminId}] QR gerado — aguardando escaneio.`);
     }
 
@@ -129,6 +134,7 @@ async function createSession(adminId) {
       sess.qrDataUrl  = null;
       sess.connected  = true;
       sess.connecting = false;
+      sess.retryCount = 0;
       sess.phone      = sock.user?.id?.split(':')[0]?.split('@')[0] ?? null;
       console.log(`[WA][${adminId}] Conectado — número: ${sess.phone}`);
     }
@@ -142,15 +148,17 @@ async function createSession(adminId) {
       console.log(`[WA][${adminId}] Conexão encerrada — código: ${code}`);
 
       if (loggedOut) {
-        // Usuário desconectou no celular — limpa auth e remove da memória
+        // Usuário desconectou no celular — limpa auth do Supabase
         console.log(`[WA][${adminId}] Sessão revogada. Admin deve reconectar via QR.`);
-        _clearAuth(adminId);
+        await clearAuthState(adminId);
         sessions.delete(adminId);
       } else {
-        // Falha de rede — reconecta automaticamente
-        console.log(`[WA][${adminId}] Reconectando em 5 segundos...`);
+        // Falha de rede — reconecta com backoff exponencial (máx 60 s)
+        sess.retryCount += 1;
+        const delay = Math.min(5_000 * Math.pow(1.5, sess.retryCount - 1), 60_000);
+        console.log(`[WA][${adminId}] Reconectando em ${Math.round(delay / 1000)}s (tentativa ${sess.retryCount})...`);
         sess.connecting = true;
-        setTimeout(() => createSession(adminId), 5_000);
+        setTimeout(() => createSession(adminId), delay);
       }
     }
   });
@@ -159,7 +167,7 @@ async function createSession(adminId) {
 }
 
 /**
- * Encerra e remove a sessão de um admin (logout + limpeza de auth).
+ * Encerra e remove a sessão de um admin (logout + limpeza de auth no Supabase).
  */
 async function destroySession(adminId) {
   const sess = sessions.get(adminId);
@@ -169,7 +177,7 @@ async function destroySession(adminId) {
     if (sess.sock) await sess.sock.logout();
   } catch { /* ignora erros de logout */ }
 
-  _clearAuth(adminId);
+  await clearAuthState(adminId);
   sessions.delete(adminId);
   console.log(`[WA][${adminId}] Sessão destruída.`);
 }
@@ -193,36 +201,25 @@ async function sendMessage(adminId, jid, texto, mentions = []) {
   });
 }
 
-// ─── Privado ──────────────────────────────────────────────────────────────────
-
-function _clearAuth(adminId) {
-  try {
-    fs.rmSync(authDir(adminId), { recursive: true, force: true });
-  } catch { /* ignora se já não existir */ }
-}
-
 // ─── Reconectar sessões existentes ao iniciar o servidor ──────────────────────
 
 /**
- * Lê a pasta auth_state/ e reconecta todos os admins que já tinham sessão salva.
+ * Consulta o Supabase e reconecta todos os admins que já tinham sessão salva.
  * Chamado automaticamente por server.js na inicialização.
  */
 async function restoreExistingSessions() {
-  const base = path.resolve(__dirname, '../../auth_state');
-  ensureDir(base);
-
-  let entries;
+  let adminIds;
   try {
-    entries = fs.readdirSync(base, { withFileTypes: true });
-  } catch {
+    adminIds = await listSavedAdminIds();
+  } catch (err) {
+    console.error('[WA] Erro ao listar sessões salvas no Supabase:', err.message);
     return;
   }
 
-  const dirs = entries.filter(e => e.isDirectory()).map(e => e.name);
-  if (dirs.length === 0) return;
+  if (adminIds.length === 0) return;
 
-  console.log(`[WA] Restaurando ${dirs.length} sessão(ões) existente(s)...`);
-  await Promise.allSettled(dirs.map(adminId => createSession(adminId)));
+  console.log(`[WA] Restaurando ${adminIds.length} sessão(ões) do Supabase...`);
+  await Promise.allSettled(adminIds.map(adminId => createSession(adminId)));
 }
 
 module.exports = { getSession, createSession, destroySession, sendMessage, restoreExistingSessions };
