@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8"/>
+<meta http-equiv="refresh" content="0; url=./Principal/index.html"/>
+<title>EscalaFest</title>
+</head>
+<body>
+<script>
+  if (location.protocol === 'file:') {
+    location.replace('./Principal/index.html');
+  } else if (location.protocol !== 'https:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+    location.replace('https://' + location.host + location.pathname);
+  } else {
+    location.replace('./Principal/index.html');
+  }
+</script>
+</body>
+</html>

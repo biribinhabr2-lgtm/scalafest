@@ -1,0 +1,4 @@
+whatsapp-server/node_modules/
+whatsapp-server/.env
+*.bak
+.claude/
