@@ -6,7 +6,7 @@ const TH = 'sf_historico_status';
 const SELECT_FULL = `
   *,
   motorista:sf_motoristas(id,nome,telefone,status),
-  veiculo:sf_veiculos(nome,placa,capacidade),
+  veiculo:sf_veiculos(nome,placa,capacidade,consumo_medio),
   ponto_saida:sf_pontos_encontro!ponto_saida_id(nome,endereco,lat,lng),
   ponto_retorno:sf_pontos_encontro!ponto_retorno_id(nome,endereco,lat,lng)
 `.trim();

@@ -1055,9 +1055,9 @@ function AbaDashboard({adminId}) {
   const STAT_CARDS = stats ? [
     {icon:'🚗', label:'Total de Rotas',    val: stats.total_rotas},
     {icon:'✅', label:'Finalizadas',        val: stats.finalizadas},
-    {icon:'⏱️', label:'Taxa de Atraso',    val: stats.taxa_atraso + '%'},
+    {icon:'⏱️', label:'Taxa de Atraso',    val: stats.taxa_atraso !== null ? stats.taxa_atraso + '%' : '—', sub: stats.taxa_atraso === null ? 'sem rotas finalizadas' : stats.taxa_atraso === 0 ? '✅ nenhum atraso' : `${Math.round(stats.finalizadas * stats.taxa_atraso / 100)} rota(s) atrasada(s)`},
     {icon:'🛣️', label:'Distância Total',   val: stats.distancia_total_km + ' km'},
-    {icon:'⛽', label:'Combustível Est.',   val: stats.combustivel_estimado + ' L'},
+    {icon:'⛽', label:'Combustível Est.',   val: stats.combustivel_estimado + ' L', sub: 'baseado no consumo de cada veículo'},
   ] : [];
 
   return (
@@ -1069,8 +1069,9 @@ function AbaDashboard({adminId}) {
           {STAT_CARDS.map(s => (
             <div key={s.label} style={{background:'#fff',borderRadius:12,padding:16,border:'1px solid #E2E8F0',textAlign:'center',boxShadow:'0 1px 3px rgba(0,0,0,.06)'}}>
               <div style={{fontSize:28,marginBottom:6}}>{s.icon}</div>
-              <div style={{fontSize:20,fontWeight:800,fontFamily:'Sora,sans-serif'}}>{s.val}</div>
+              <div style={{fontSize:20,fontWeight:800,fontFamily:'Sora,sans-serif',color: s.label==='Taxa de Atraso'&&s.val==='0%'?'#16A34A': s.label==='Taxa de Atraso'&&s.val!=='—'&&parseInt(s.val)>0?'#DC2626':'inherit'}}>{s.val}</div>
               <div style={{fontSize:11,color:'#64748B',marginTop:2}}>{s.label}</div>
+              {s.sub&&<div style={{fontSize:10,color:'#94A3B8',marginTop:3}}>{s.sub}</div>}
             </div>
           ))}
         </div>

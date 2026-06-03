@@ -163,6 +163,18 @@ async function dashboard(adminId) {
 
   const totalKm = finalizadas.reduce((s, r) => s + (r.distancia_km || 0), 0);
 
+  // Combustível real: usa consumo_medio do veículo por rota, fallback 12 km/L
+  const combustivelEstimado = finalizadas.reduce((s, r) => {
+    const km      = r.distancia_km || 0;
+    const consumo = r.veiculo?.consumo_medio || 12;
+    return s + (km / consumo);
+  }, 0);
+
+  // Taxa de atraso: null quando não há rotas finalizadas (evita "0% falso")
+  const taxa_atraso = finalizadas.length > 0
+    ? Math.round(atrasos.length / finalizadas.length * 100)
+    : null;
+
   // Most used driver
   const contagem = {};
   finalizadas.forEach(r => { if (r.motorista_id) contagem[r.motorista_id] = (contagem[r.motorista_id] || 0) + 1; });
@@ -171,9 +183,9 @@ async function dashboard(adminId) {
   return {
     total_rotas:          rotas.length,
     finalizadas:          finalizadas.length,
-    taxa_atraso:          finalizadas.length ? Math.round(atrasos.length / finalizadas.length * 100) : 0,
+    taxa_atraso,                                              // null = sem dados ainda
     distancia_total_km:   Math.round(totalKm * 10) / 10,
-    combustivel_estimado: Math.round(totalKm / 12 * 10) / 10, // 12 km/L default
+    combustivel_estimado: Math.round(combustivelEstimado * 10) / 10,
     motorista_mais_usado: motoristaMaisUsado ? { id: motoristaMaisUsado[0], corridas: motoristaMaisUsado[1] } : null,
   };
 }

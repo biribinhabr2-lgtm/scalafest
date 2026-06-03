@@ -406,6 +406,7 @@ const NAV_ICONS={
   bonificacoes:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>,
   feedback:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
   plano:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>,
+  pontos:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
   relatorios:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
   ganhos:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>,
   eventos_admin:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 9h18M8 2v4M16 2v4M9 14l2 2 4-4"/></svg>,
@@ -416,7 +417,7 @@ const NAV_ICONS={
 const Sidebar=({aba,setAba,mobile,onReset,userEmail,onLogout,onRefresh,perfil})=>{
   const temMotorista = getMotoristaAcesso(perfil, userEmail);
   const GROUPS=[
-    [{id:"eventos",label:"Eventos"},{id:"equipe",label:"Equipe"},{id:"motoristas",label:"Motoristas",locked:!temMotorista,lockMsg:"Plano Grande Empresa"},{id:"disponibilidade",label:"Disponib."}],
+    [{id:"eventos",label:"Eventos"},{id:"equipe",label:"Equipe"},{id:"motoristas",label:"Motoristas",locked:!temMotorista,lockMsg:"Plano Grande Empresa"},{id:"pontos",label:"Pontos",locked:!temMotorista,lockMsg:"Plano Grande Empresa"},{id:"disponibilidade",label:"Disponib."}],
     [{id:"funcoes",label:"Funções"},{id:"bonificacoes",label:"Bônus"},{id:"treinamentos",label:"Treinos"},{id:"feedback",label:"Feedback"}],
     [{id:"relatorios",label:"Relatórios"},{id:"plano",label:"Plano"}],
   ];
@@ -4083,6 +4084,122 @@ function AbaLocked({recurso,emoji,planoNecessario,onUpgrade}){
 
 // ── APP ────────────────────────────────────────────────────────────────────────
 // ── ABA MOTORISTAS (ADMIN) ────────────────────────────────────────────────────
+// ── ABA PONTOS DE ENCONTRO ────────────────────────────────────────────────────
+function AbaPontosEncontro({adminId}){
+  const[items,setItems]=useState([]);
+  const[form,setForm]=useState(null);
+  const[loading,setLoading]=useState(true);
+  const[saving,setSaving]=useState(false);
+  const[erro,setErro]=useState('');
+
+  const hdrs={
+    'Content-Type':'application/json',
+    'x-api-secret':WA_SECRET,
+    'x-admin-id':adminId,
+    'bypass-tunnel-reminder':'true',
+  };
+
+  const carregar=async()=>{
+    setLoading(true);setErro('');
+    try{
+      const r=await fetch(`${WA_SERVER_URL}/api/logistics/points?adminId=${adminId}`,{headers:hdrs});
+      if(!r.ok)throw new Error('Erro '+r.status);
+      const d=await r.json();
+      setItems(Array.isArray(d)?d:[]);
+    }catch(e){setErro(e.message);}
+    setLoading(false);
+  };
+
+  useEffect(()=>{carregar();},[adminId]);
+
+  const salvar=async(f)=>{
+    if(!f.nome?.trim()||!f.endereco?.trim()){alert('Nome e endereço são obrigatórios.');return;}
+    setSaving(true);
+    try{
+      const url=f.id?`${WA_SERVER_URL}/api/logistics/points/${f.id}`:`${WA_SERVER_URL}/api/logistics/points`;
+      const r=await fetch(url,{method:f.id?'PUT':'POST',headers:hdrs,body:JSON.stringify({...f,adminId})});
+      if(!r.ok)throw new Error(await r.text());
+      setForm(null);carregar();
+    }catch(e){alert('Erro: '+e.message);}
+    setSaving(false);
+  };
+
+  const remover=async(id)=>{
+    if(!window.confirm('Remover este ponto de encontro?'))return;
+    try{
+      await fetch(`${WA_SERVER_URL}/api/logistics/points/${id}?adminId=${adminId}`,{method:'DELETE',headers:hdrs});
+      carregar();
+    }catch(e){alert(e.message);}
+  };
+
+  return(
+    <div style={{padding:"24px 28px",flex:1,overflowY:"auto"}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:24,paddingBottom:20,borderBottom:"1px solid var(--border)",flexWrap:"wrap",gap:12}}>
+        <div>
+          <h2 style={{color:"var(--text)",margin:0,fontSize:18,fontWeight:600}}>📍 Pontos de Encontro</h2>
+          <p style={{color:"var(--text2)",margin:"4px 0 0",fontSize:13}}>Pontos de saída/retorno para rotas de motoristas. Alterações refletem automaticamente em Logística.</p>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <button onClick={carregar} style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:10,padding:"9px 14px",fontSize:13,cursor:"pointer",color:"var(--text2)",fontFamily:"inherit"}}>↻ Atualizar</button>
+          <button onClick={()=>setForm({})} style={{background:"#0C6E7E",color:"#fff",border:"none",borderRadius:10,padding:"9px 16px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>+ Novo Ponto</button>
+        </div>
+      </div>
+
+      {erro&&<div style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:10,padding:"10px 14px",color:"#DC2626",fontSize:13,marginBottom:16}}>{erro} <button onClick={carregar} style={{marginLeft:8,background:"none",border:"none",color:"#DC2626",cursor:"pointer",fontWeight:700,fontFamily:"inherit"}}>Tentar novamente</button></div>}
+
+      {form!==null&&(
+        <div style={{background:"var(--card)",border:"2px solid #0C6E7E33",borderRadius:14,padding:20,marginBottom:20}}>
+          <h3 style={{margin:"0 0 16px",fontSize:15,color:"var(--text)",fontWeight:700}}>{form.id?'Editar Ponto':'Novo Ponto de Encontro'}</h3>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+            <Inp label="Nome *" value={form.nome||""} onChange={e=>setForm(f=>({...f,nome:e.target.value}))} placeholder="Galpão Central"/>
+            <Inp label="Endereço completo *" value={form.endereco||""} onChange={e=>setForm(f=>({...f,endereco:e.target.value}))} placeholder="Rua das Flores, 100 — São Paulo, SP"/>
+          </div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"0 16px"}}>
+            <Inp label="Latitude (opcional)" type="number" value={form.lat||""} onChange={e=>setForm(f=>({...f,lat:e.target.value}))} placeholder="-23.5505"/>
+            <Inp label="Longitude (opcional)" type="number" value={form.lng||""} onChange={e=>setForm(f=>({...f,lng:e.target.value}))} placeholder="-46.6333"/>
+          </div>
+          <div style={{marginBottom:16}}>
+            <label style={{fontSize:11,fontWeight:600,color:"var(--text2)",textTransform:"uppercase",letterSpacing:"0.06em",display:"block",marginBottom:6}}>Observações</label>
+            <textarea value={form.observacoes||""} onChange={e=>setForm(f=>({...f,observacoes:e.target.value}))}
+              rows={2} style={{width:"100%",background:"var(--card)",border:"1px solid var(--border)",borderRadius:10,padding:"10px 14px",color:"var(--text)",fontSize:13,outline:"none",fontFamily:"inherit",resize:"vertical"}}/>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <Btn onClick={()=>salvar(form)} disabled={saving} style={{background:"#0C6E7E",color:"#fff"}}>{saving?"Salvando…":"Salvar"}</Btn>
+            <Btn onClick={()=>setForm(null)} style={{background:"var(--surface)",color:"var(--text2)"}}>Cancelar</Btn>
+          </div>
+        </div>
+      )}
+
+      {loading&&items.length===0&&<div style={{textAlign:"center",padding:48,color:"var(--text3)"}}>Carregando…</div>}
+
+      {!loading&&items.length===0&&!form&&(
+        <div style={{textAlign:"center",color:"var(--text3)",padding:"48px 0",fontSize:14,background:"var(--card)",border:"1px solid var(--border)",borderRadius:12}}>
+          <div style={{fontSize:36,marginBottom:12}}>📍</div>
+          <div style={{fontWeight:600,color:"var(--text)",marginBottom:6}}>Nenhum ponto cadastrado</div>
+          <div style={{fontSize:12}}>Pontos criados aqui ficam disponíveis em Logística → Rotas → Ponto de Saída.</div>
+        </div>
+      )}
+
+      <div style={{display:"grid",gap:10}}>
+        {items.map(p=>(
+          <div key={p.id} style={{background:"var(--card)",borderRadius:12,padding:"14px 16px",border:"1px solid var(--border)",boxShadow:"var(--shadow)",display:"flex",justifyContent:"space-between",alignItems:"flex-start",gap:12}}>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontWeight:700,fontSize:14,color:"var(--text)",marginBottom:2}}>📍 {p.nome}</div>
+              <div style={{fontSize:12,color:"var(--text2)",marginBottom:p.observacoes?2:0}}>{p.endereco}</div>
+              {p.observacoes&&<div style={{fontSize:11,color:"var(--text3)",marginBottom:4}}>{p.observacoes}</div>}
+              {(p.lat&&p.lng)&&<a href={`https://maps.google.com/?q=${p.lat},${p.lng}`} target="_blank" rel="noopener noreferrer" style={{fontSize:11,color:"#0C6E7E",fontWeight:600,textDecoration:"none"}}>🗺️ Ver no mapa</a>}
+            </div>
+            <div style={{display:"flex",gap:6,flexShrink:0}}>
+              <button onClick={()=>setForm({...p})} style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:8,padding:"5px 10px",fontSize:12,cursor:"pointer",color:"var(--text2)",fontFamily:"inherit"}}>✏️ Editar</button>
+              <button onClick={()=>remover(p.id)} style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:8,padding:"5px 10px",fontSize:12,cursor:"pointer",color:"#DC2626",fontFamily:"inherit"}}>🗑️</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function AbaMotoristas({freelancers,eventos,motoristaDias,setMotoristaDias}){
   const hoje=localDateStr();
   const[dataSel,setDataSel]=useState(hoje);
@@ -4415,6 +4532,10 @@ function App(){
               ? <AbaMotoristas freelancers={fl} eventos={ev} motoristaDias={motoristaDias} setMotoristaDias={setMotoristaDias}/>
               : <AbaLocked recurso="Escala de Motoristas" emoji="🚗" planoNecessario="Grande Empresa" onUpgrade={()=>setModalPlano(true)}/>
             )}
+            {aba==="pontos"&&(temMotorista
+              ? <AbaPontosEncontro adminId={user.id}/>
+              : <AbaLocked recurso="Pontos de Encontro" emoji="📍" planoNecessario="Grande Empresa" onUpgrade={()=>setModalPlano(true)}/>
+            )}
             {aba==="funcoes"&&<AbaFuncoes funcoes={funcoes} setFuncoes={setFuncoesS}/>}
             {aba==="disponibilidade"&&<AbaDisponibilidade freelancers={fl} disponibilidade={disp} setDisponibilidade={setDispS}/>}
             {aba==="treinamentos"&&<AbaTreinamentos treinamentos={treinamentos} setTreinamentos={setTreinamentosS} adminId={user.id} user={user} perfil={perfil} freelancers={fl}/>}
@@ -4444,6 +4565,10 @@ function App(){
           {aba==="motoristas"&&(temMotorista
             ? <AbaMotoristas freelancers={fl} eventos={ev} motoristaDias={motoristaDias} setMotoristaDias={setMotoristaDias}/>
             : <AbaLocked recurso="Escala de Motoristas" emoji="🚗" planoNecessario="Grande Empresa" onUpgrade={()=>setModalPlano(true)}/>
+          )}
+          {aba==="pontos"&&(temMotorista
+            ? <AbaPontosEncontro adminId={user.id}/>
+            : <AbaLocked recurso="Pontos de Encontro" emoji="📍" planoNecessario="Grande Empresa" onUpgrade={()=>setModalPlano(true)}/>
           )}
           {aba==="funcoes"&&<AbaFuncoes funcoes={funcoes} setFuncoes={setFuncoesS}/>}
           {aba==="disponibilidade"&&<AbaDisponibilidade freelancers={fl} disponibilidade={disp} setDisponibilidade={setDispS}/>}
