@@ -78,7 +78,14 @@ const API_SECRET = "63ca1c9204286739761235ed738ec5cd138615fe31267aaf4cb429ace26c
 
 const SERVER_DEFAULT = "https://scalafest-production.up.railway.app";
 const getServer = () => {
-  try { return localStorage.getItem("wa_server_url") || SERVER_DEFAULT; }
+  try {
+    const saved = localStorage.getItem("wa_server_url");
+    if(!saved || saved.includes("localhost") || saved.includes("127.0.0.1")){
+      localStorage.setItem("wa_server_url", SERVER_DEFAULT);
+      return SERVER_DEFAULT;
+    }
+    return saved;
+  }
   catch(e) { return SERVER_DEFAULT; }
 };
 

@@ -130,9 +130,18 @@ const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
 // Altere se rodar em outra porta ou em servidor remoto.
 // URL do servidor WhatsApp — lida do localStorage para não precisar editar código
 // a cada restart. O usuário configura pelo botão ⚙️ no painel.
+const WA_RAILWAY = "https://scalafest-production.up.railway.app";
 const WA_SERVER_URL = (()=>{
-  try{ return localStorage.getItem("wa_server_url")||"https://scalafest-production.up.railway.app"; }
-  catch(e){ return "https://scalafest-production.up.railway.app"; }
+  try{
+    const saved = localStorage.getItem("wa_server_url");
+    // Migração: substitui localhost salvo pelo Railway
+    if(!saved || saved.includes("localhost") || saved.includes("127.0.0.1")){
+      localStorage.setItem("wa_server_url", WA_RAILWAY);
+      return WA_RAILWAY;
+    }
+    return saved;
+  }
+  catch(e){ return WA_RAILWAY; }
 })();
 const WA_SECRET = "63ca1c9204286739761235ed738ec5cd138615fe31267aaf4cb429ace26c3410";
 
