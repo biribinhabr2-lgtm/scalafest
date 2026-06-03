@@ -131,8 +131,8 @@ const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
 // URL do servidor WhatsApp — lida do localStorage para não precisar editar código
 // a cada restart. O usuário configura pelo botão ⚙️ no painel.
 const WA_SERVER_URL = (()=>{
-  try{ return localStorage.getItem("wa_server_url")||"http://localhost:3001"; }
-  catch(e){ return "http://localhost:3001"; }
+  try{ return localStorage.getItem("wa_server_url")||"https://scalafest-production.up.railway.app"; }
+  catch(e){ return "https://scalafest-production.up.railway.app"; }
 })();
 const WA_SECRET = "63ca1c9204286739761235ed738ec5cd138615fe31267aaf4cb429ace26c3410";
 
@@ -821,7 +821,7 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes}){
           {waEnviando?"⏳ Enviando...":"📤 Enviar"}
         </button>
         <button title="Configurar URL do servidor" onClick={()=>{
-          const atual=localStorage.getItem("wa_server_url")||"http://localhost:3001";
+          const atual=localStorage.getItem("wa_server_url")||"https://scalafest-production.up.railway.app";
           const nova=window.prompt("URL do servidor WhatsApp (ex: https://xxxx.loca.lt)",atual);
           if(nova!==null){const url=nova.trim().replace(/\/$/,"");localStorage.setItem("wa_server_url",url);setWaUrl(url);}
         }} style={{background:"transparent",border:"1px solid #BBF7D0",borderRadius:8,padding:"5px 9px",fontSize:13,cursor:"pointer",color:"#15803D"}}>⚙️</button>

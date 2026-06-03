@@ -76,9 +76,10 @@ const SUPA_KEY = "sb_publishable_NnGnQvref4sylej3KR9vqQ_ldWpXeit";
 const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
 const API_SECRET = "63ca1c9204286739761235ed738ec5cd138615fe31267aaf4cb429ace26c3410";
 
+const SERVER_DEFAULT = "https://scalafest-production.up.railway.app";
 const getServer = () => {
-  try { return localStorage.getItem("wa_server_url") || "http://localhost:3001"; }
-  catch(e) { return "http://localhost:3001"; }
+  try { return localStorage.getItem("wa_server_url") || SERVER_DEFAULT; }
+  catch(e) { return SERVER_DEFAULT; }
 };
 
 const api = async (method, path, adminId, body) => {
@@ -1249,11 +1250,11 @@ function AbaConfig({adminId}) {
         <div style={{fontSize:12,fontWeight:700,color:'#64748B',textTransform:'uppercase',letterSpacing:'0.06em',margin:'20px 0 12px'}}>Integrações</div>
         <Campo label="Google Maps API Key" value={cfg.google_maps_key} onChange={e=>set('google_maps_key',e.target.value)} placeholder="AIzaSy..." />
         <div style={{marginBottom:6}}>
-          <Label>URL do Servidor (localhost ou túnel HTTPS)</Label>
-          <input value={serverUrl} onChange={e=>setServerUrl(e.target.value)} placeholder="http://localhost:3001"
+          <Label>URL do Servidor WhatsApp</Label>
+          <input value={serverUrl} onChange={e=>setServerUrl(e.target.value)} placeholder="https://scalafest-production.up.railway.app"
                  style={{width:'100%',padding:'8px 10px',borderRadius:8,border:'1px solid #E2E8F0',background:'#fff'}} />
           <div style={{fontSize:11,color:'#94A3B8',marginTop:4}}>
-            Use a URL do túnel (https://escalafest-wa.loca.lt) quando acessar pelo Netlify.
+            URL do Railway (produção) ou túnel local para desenvolvimento.
           </div>
         </div>
 
