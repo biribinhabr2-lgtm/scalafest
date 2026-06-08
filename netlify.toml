@@ -1,0 +1,73 @@
+# netlify.toml — EscalaFest
+
+[build]
+  publish = "."
+
+# ── Cabeçalhos de cache ────────────────────────────────────────────────────────
+# HTML: sem cache (sempre busca a versão mais recente)
+[[headers]]
+  for = "/*.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  for = "/Dashboard/index.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  for = "/Logistica/index.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+[[headers]]
+  for = "/Logistica/motorista.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+# Imagens e assets: cache longo
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/Dashboard/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/Principal/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# ── Rotas com e sem barra final ────────────────────────────────────────────────
+[[redirects]]
+  from = "/dashboard"
+  to   = "/Dashboard/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/dashboard/"
+  to   = "/Dashboard/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/logistica"
+  to   = "/Logistica/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/logistica/"
+  to   = "/Logistica/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/logistica/motorista"
+  to   = "/Logistica/motorista.html"
+  status = 200
+
+[[redirects]]
+  from = "/logistica/motorista/"
+  to   = "/Logistica/motorista.html"
+  status = 200
