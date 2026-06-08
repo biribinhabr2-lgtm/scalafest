@@ -205,9 +205,9 @@ const crossLoad = async (userId, tipo) => {
 
 // ── BONIFICAÇÕES ───────────────────────────────────────────────────────────────
 const BONUS_INIT = [
-  {id:"junior", label:"Júnior", valor:5,  cor:"#3b82f6"},
-  {id:"senior", label:"Sênior", valor:10, cor:"#a855f7"},
-  {id:"master", label:"Master", valor:20, cor:"#f59e0b"},
+  {id:"junior", label:"Júnior", valor:5,  cor:"#3b82f6", tempoMin:180},
+  {id:"senior", label:"Sênior", valor:10, cor:"#a855f7", tempoMin:180},
+  {id:"master", label:"Master", valor:20, cor:"#f59e0b", tempoMin:180},
 ];
 // Referência global — atualizada pelo App para que calcCache funcione sem prop drilling
 let NIVEIS_BONUS = [...BONUS_INIT];
@@ -407,6 +407,7 @@ const NAV_ICONS={
   feedback:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>,
   plano:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>,
   pontos:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
+  ranking:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="18 20 18 10"/><polyline points="12 20 12 4"/><polyline points="6 20 6 14"/></svg>,
   relatorios:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
   ganhos:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>,
   eventos_admin:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 9h18M8 2v4M16 2v4M9 14l2 2 4-4"/></svg>,
@@ -419,7 +420,7 @@ const Sidebar=({aba,setAba,mobile,onReset,userEmail,onLogout,onRefresh,perfil})=
   const GROUPS=[
     [{id:"eventos",label:"Eventos"},{id:"equipe",label:"Equipe"},{id:"motoristas",label:"Motoristas",locked:!temMotorista,lockMsg:"Plano Grande Empresa"},{id:"pontos",label:"Pontos",locked:!temMotorista,lockMsg:"Plano Grande Empresa"},{id:"disponibilidade",label:"Disponib."}],
     [{id:"funcoes",label:"Funções"},{id:"bonificacoes",label:"Bônus"},{id:"treinamentos",label:"Treinos"},{id:"feedback",label:"Feedback"}],
-    [{id:"relatorios",label:"Relatórios"},{id:"plano",label:"Plano"}],
+    [{id:"ranking",label:"Ranking"},{id:"relatorios",label:"Relatórios"},{id:"plano",label:"Plano"}],
   ];
   const NAV_FLAT=GROUPS.flat();
   const initial=userEmail?userEmail[0].toUpperCase():"?";
@@ -772,7 +773,8 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes}){
     const fl=freelancers.find(f=>f.id===+mf.freelancerId);
     const dur=duracaoEvento(ev);
     const nivelBonus=fl?.nivelBonus||null;
-    const bonusAuto=dur>180&&!!nivelBonus; // >3h ativa automaticamente
+    const nivelObj=NIVEIS_BONUS.find(n=>n.id===nivelBonus);
+    const bonusAuto=dur>(nivelObj?.tempoMin??180)&&!!nivelBonus; // usa tempoMin do nível
     return {
       freelancerId:+mf.freelancerId,
       funcao:mf.funcao,
@@ -1007,9 +1009,7 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes}){
                     <div style={{display:"flex",alignItems:"center",gap:8}}>
                       <span style={{fontSize:12,color:nivel.cor,fontWeight:700}}>⭐ Bônus {nivel.label}</span>
                       <span style={{fontSize:11,color:"var(--text3)"}}>+R$ {nivel.valor},00</span>
-                      {duracaoEvento(det)>180
-                        ?<span style={{fontSize:10,color:"var(--success)"}}>(auto · +3h)</span>
-                        :<span style={{fontSize:10,color:"var(--text3)"}}>(manual · &lt;3h)</span>}
+                      {(()=>{const tMin2=nivel?.tempoMin??180;const hMin2=tMin2>=60?`${Math.floor(tMin2/60)}h${tMin2%60?String(tMin2%60).padStart(2,"0")+"min":""}`:tMin2+"min";return duracaoEvento(det)>tMin2?<span style={{fontSize:10,color:"var(--success)"}}>(auto · +{hMin2})</span>:<span style={{fontSize:10,color:"var(--text3)"}}>(manual · &lt;{hMin2})</span>;})()}
                     </div>
                     <button onClick={togBonus} style={{background:m.bonus.ativo?nivel.cor+"33":"var(--border)",border:`1px solid ${m.bonus.ativo?nivel.cor:"var(--border)"}`,borderRadius:20,padding:"4px 12px",fontSize:11,fontWeight:700,color:m.bonus.ativo?nivel.cor:"var(--text3)",cursor:"pointer",fontFamily:"inherit",transition:"all .15s"}}>
                       {m.bonus.ativo?"✓ Ativo":"Inativo"}
@@ -1136,14 +1136,16 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes}){
                 if(!flSel?.nivelBonus||!mf.cache)return null;
                 const nivel=NIVEIS_BONUS.find(n=>n.id===flSel.nivelBonus);
                 const dur=duracaoEvento(det);
-                const autoAtivo=dur>180;
+                const tMin=nivel?.tempoMin??180;
+                const autoAtivo=dur>tMin;
+                const hMin=tMin>=60?`${Math.floor(tMin/60)}h${tMin%60?String(tMin%60).padStart(2,"0")+"min":""}`:tMin+"min";
                 return(
                   <div style={{background:nivel.cor+"15",border:`1px solid ${nivel.cor}33`,borderRadius:8,padding:"8px 12px",fontSize:12}}>
                     <div style={{color:nivel.cor,fontWeight:700,marginBottom:2}}>⭐ Bônus {nivel.label} configurado</div>
                     <div style={{color:"var(--text2)"}}>
                       {autoAtivo
-                        ?`Evento com mais de 3h → bônus de R$${nivel.valor} ativado automaticamente. Total: R$ ${(+mf.cache+nivel.valor).toFixed(2).replace(".",",")}`
-                        :`Evento com menos de 3h → bônus inativo por padrão. Você pode ativar manualmente após escalar.`}
+                        ?`Evento com mais de ${hMin} → bônus de R$${nivel.valor} ativado automaticamente. Total: R$ ${(+mf.cache+nivel.valor).toFixed(2).replace(".",",")}`
+                        :`Evento com menos de ${hMin} → bônus inativo por padrão. Você pode ativar manualmente após escalar.`}
                     </div>
                   </div>
                 );
@@ -1763,6 +1765,101 @@ function AbaFeedbackAdmin({freelancers,eventos,adminId,perguntas,setPerguntas}){
 
 
 // ── ABA RELATÓRIOS ─────────────────────────────────────────────────────────────
+// ── ABA RANKING ───────────────────────────────────────────────────────────────
+function AbaRanking({freelancers,eventos,adminId}){
+  const mesAtual=new Date().toISOString().slice(0,7);
+  const[mesRanking,setMesRanking]=useState(mesAtual);
+  const[feedbackCounts,setFeedbackCounts]=useState({});
+  const[loadingFb,setLoadingFb]=useState(true);
+
+  useEffect(()=>{
+    const flsComId=freelancers.filter(f=>f.userId);
+    if(!flsComId.length){setLoadingFb(false);return;}
+    Promise.all(flsComId.map(f=>
+      crossLoad(f.userId,"feedbacks_"+adminId).then(d=>({uid:f.userId,count:(d||[]).length}))
+    )).then(results=>{
+      const counts={};results.forEach(r=>{counts[r.uid]=r.count;});
+      setFeedbackCounts(counts);setLoadingFb(false);
+    });
+  },[adminId]);
+
+  const mesesDisp=[...new Set(eventos.map(e=>e.data?.slice(0,7)).filter(Boolean))].sort().reverse();
+  const eventosMes=eventos.filter(e=>e.data?.startsWith(mesRanking));
+  const workCounts={};
+  eventosMes.forEach(ev=>(ev.equipe||[]).forEach(m=>{if(m.freelancerId)workCounts[m.freelancerId]=(workCounts[m.freelancerId]||0)+1;}));
+
+  const rankTrabalho=freelancers.map(f=>({f,n:workCounts[f.id]||0})).filter(r=>r.n>0).sort((a,b)=>b.n-a.n).slice(0,10);
+  const rankFeedback=freelancers.filter(f=>f.userId).map(f=>({f,n:feedbackCounts[f.userId]||0})).filter(r=>r.n>0).sort((a,b)=>b.n-a.n).slice(0,10);
+  const medalha=i=>["🥇","🥈","🥉"][i]||(i+1)+"º";
+  const [mo,y]=mesRanking.includes("-")?[+mesRanking.split("-")[1]-1,mesRanking.split("-")[0]]:[new Date().getMonth(),new Date().getFullYear()];
+
+  const ItemRanking=({item,i,corVal})=>(
+    <div style={{background:"var(--card)",borderRadius:12,padding:"12px 14px",border:"1px solid var(--border)",boxShadow:i===0?"0 2px 8px rgba(12,110,126,.1)":"none",display:"flex",alignItems:"center",gap:12}}>
+      <div style={{fontSize:20,width:32,textAlign:"center",flexShrink:0}}>{medalha(i)}</div>
+      <Avatar nome={item.f.nome} size={32}/>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontWeight:700,color:"var(--text)",fontSize:14,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{item.f.nome}</div>
+        {item.f.nivelBonus&&<div style={{fontSize:10,color:NIVEIS_BONUS.find(n=>n.id===item.f.nivelBonus)?.cor,fontWeight:600}}>⭐ {NIVEIS_BONUS.find(n=>n.id===item.f.nivelBonus)?.label}</div>}
+      </div>
+      <div style={{textAlign:"right",flexShrink:0}}>
+        <div style={{fontSize:20,fontWeight:800,color:corVal}}>{item.n}</div>
+        <div style={{fontSize:10,color:"var(--text3)"}}>{item.n===1?"vez":"vezes"}</div>
+      </div>
+    </div>
+  );
+
+  return(
+    <div style={{padding:"24px 28px",flex:1,overflowY:"auto"}}>
+      <div style={{marginBottom:24,paddingBottom:20,borderBottom:"1px solid var(--border)"}}>
+        <h2 style={{color:"var(--text)",margin:0,fontSize:18,fontWeight:600}}>🏆 Ranking</h2>
+        <p style={{color:"var(--text2)",margin:"4px 0 0",fontSize:13}}>Quem mais trabalhou e quem mais deu feedback</p>
+      </div>
+
+      {/* Seletor de mês */}
+      {mesesDisp.length>0&&(
+        <div style={{marginBottom:24}}>
+          <div style={{fontSize:11,fontWeight:700,color:"var(--text2)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>Mês — ranking de trabalho</div>
+          <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:4}}>
+            {mesesDisp.map(m=>{const[yy,mm]=m.split("-");return(
+              <button key={m} onClick={()=>setMesRanking(m)} style={{flexShrink:0,padding:"7px 14px",borderRadius:6,border:`1px solid ${mesRanking===m?"var(--primary)":"var(--border)"}`,background:mesRanking===m?"var(--primary)":"var(--card)",color:mesRanking===m?"#fff":"var(--text2)",fontSize:12,fontWeight:mesRanking===m?700:400,cursor:"pointer",fontFamily:"inherit",whiteSpace:"nowrap"}}>
+                {MESES[+mm-1].slice(0,3)} {yy}
+              </button>
+            );})}
+          </div>
+        </div>
+      )}
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:20}}>
+        {/* Trabalho */}
+        <div>
+          <div style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
+            💪 Mais trabalhou — {MESES[mo]} {y}
+            <span style={{background:"var(--surface)",borderRadius:20,fontSize:11,padding:"2px 8px",color:"var(--text3)"}}>{rankTrabalho.length}</span>
+          </div>
+          {rankTrabalho.length===0
+            ?<div style={{textAlign:"center",color:"var(--text3)",padding:"32px 0",fontSize:13,background:"var(--card)",border:"1px solid var(--border)",borderRadius:12}}>Sem eventos neste mês</div>
+            :<div style={{display:"flex",flexDirection:"column",gap:8}}>{rankTrabalho.map((r,i)=><ItemRanking key={r.f.id} item={r} i={i} corVal="#0C6E7E"/>)}</div>
+          }
+        </div>
+
+        {/* Feedback */}
+        <div>
+          <div style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
+            💬 Mais feedback dado
+            <span style={{background:"var(--surface)",borderRadius:20,fontSize:11,padding:"2px 8px",color:"var(--text3)"}}>{rankFeedback.length}</span>
+          </div>
+          {loadingFb
+            ?<div style={{textAlign:"center",color:"var(--text3)",padding:"32px 0",fontSize:13}}>Carregando…</div>
+            :rankFeedback.length===0
+              ?<div style={{textAlign:"center",color:"var(--text3)",padding:"32px 0",fontSize:13,background:"var(--card)",border:"1px solid var(--border)",borderRadius:12}}>Nenhum feedback registrado ainda</div>
+              :<div style={{display:"flex",flexDirection:"column",gap:8}}>{rankFeedback.map((r,i)=><ItemRanking key={r.f.id} item={r} i={i} corVal="#8b5cf6"/>)}</div>
+          }
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function AbaRelatorios({eventos,setEventos,freelancers,funcoes}){
   const[subAba,setSubAba]=useState("pendentes"); // "pendentes" | "pagos"
   const[fPessoa,setFPessoa]=useState("");const[fMes,setFMes]=useState("");const[waModal,setWaModal]=useState(false);
@@ -1781,6 +1878,7 @@ function AbaRelatorios({eventos,setEventos,freelancers,funcoes}){
   const tPend=filt.filter(r=>!r.pago).reduce((s,r)=>s+r.cache,0);const tPago=filt.filter(r=>r.pago).reduce((s,r)=>s+r.cache,0);const tGeral=filt.reduce((s,r)=>s+r.cache,0);
   const togPago=(eid,fid)=>setEventos(ev=>ev.map(e=>e.id===eid?{...e,equipe:e.equipe.map(m=>m.freelancerId===fid?{...m,pago:!m.pago}:m)}:e));
   const markAll=()=>filt.filter(r=>!r.pago).forEach(r=>togPago(r.eventoId,r.freelancerId));
+  const unmarkAll=()=>{if(!window.confirm(`Desfazer pagamento de ${filt.filter(r=>r.pago).length} registro(s)?`))return;filt.filter(r=>r.pago).forEach(r=>togPago(r.eventoId,r.freelancerId));};
 
   // ── GERAR PDF CACHÊS PENDENTES ──────────────────────────────────────────────
   const gerarPdfCaches=(de,ate)=>{
@@ -2042,6 +2140,7 @@ function AbaRelatorios({eventos,setEventos,freelancers,funcoes}){
           <div style={{flex:"1 1 160px"}}><Sel label="Freelancer" value={fPessoa} onChange={e=>setFPessoa(e.target.value)}><option value="">Todos os profissionais</option>{freelancers.map(f=><option key={f.id} value={f.id}>{f.nome}</option>)}</Sel></div>
           <div style={{display:"flex",gap:8,flexWrap:"wrap",alignItems:"flex-end"}}>
             {subAba==="pendentes"&&filt.length>0&&<Btn variant="success" onClick={markAll}>✅ Marcar todos pagos</Btn>}
+            {subAba==="pagos"&&filt.length>0&&<Btn variant="danger" onClick={unmarkAll}>↩ Desfazer todos pagos</Btn>}
             {subAba==="pendentes"&&filt.some(r=>r.freelancer?.telefone)&&<Btn onClick={()=>setWaModal(true)} style={{background:"#25d36622",border:"1px solid #25d36644",color:"#25d366"}}>💬 WhatsApp</Btn>}
           </div>
         </div>
@@ -3191,7 +3290,7 @@ function AbaEquipeAdmin({freelancers,setFreelancers,eventos,funcoes,adminUser,ma
                 </button>
               ))}
             </div>
-            {form.nivelBonus&&<div style={{marginTop:8,fontSize:12,color:"var(--text2)"}}>Bônus de R$ {NIVEIS_BONUS.find(n=>n.id===form.nivelBonus)?.valor},00 ativado automaticamente em eventos acima de 3h.</div>}
+            {form.nivelBonus&&(()=>{const nv=NIVEIS_BONUS.find(n=>n.id===form.nivelBonus);const t=nv?.tempoMin??180;const h=t>=60?`${Math.floor(t/60)}h${t%60?String(t%60).padStart(2,"0")+"min":""}`:t+"min";return<div style={{marginTop:8,fontSize:12,color:"var(--text2)"}}>Bônus de R$ {nv?.valor},00 ativado automaticamente em eventos acima de {h}.</div>;})()}
           </div>
           <Inp label="Observações (visível ao funcionário)" value={form.obs||""} onChange={e=>setForm(f=>({...f,obs:e.target.value}))} placeholder="Ex: não dirige, só fins de semana..."/>
           <div>
@@ -3619,7 +3718,7 @@ function AbaBonificacoes({bonificacoes,setBonificacoes}){
               <span style={{fontSize:18,fontWeight:800,color:b.cor}}>+ R$ {Number(b.valor).toFixed(2).replace(".",",")}</span>
             </div>
             <div style={{fontSize:12,color:"var(--text2)",marginBottom:14,lineHeight:1.5}}>
-              Ativado automaticamente em eventos acima de <strong>3h</strong>. Pode ser ativado/desativado manualmente na escala.
+              {(()=>{const t=b.tempoMin??180;const h=t>=60?`${Math.floor(t/60)}h${t%60?String(t%60).padStart(2,"0")+"min":""}`:t+"min";return<>Ativado automaticamente em eventos acima de <strong>{h}</strong>. Pode ser ativado/desativado manualmente na escala.</>})()}
             </div>
             <div style={{display:"flex",gap:8}}>
               <Btn small variant="ghost" style={{flex:1,justifyContent:"center"}} onClick={()=>{setForm({...b});setModal(true);}}>Editar</Btn>
@@ -3637,6 +3736,12 @@ function AbaBonificacoes({bonificacoes,setBonificacoes}){
         <div style={{display:"flex",flexDirection:"column",gap:14}}>
           <Inp label="Nome da bonificação" value={form.label||""} onChange={e=>setForm(f=>({...f,label:e.target.value}))} placeholder="Ex: Pleno, Expert, Diamante..."/>
           <Inp label="Cachê extra (R$)" type="number" min="0" step="1" value={form.valor||""} onChange={e=>setForm(f=>({...f,valor:+e.target.value}))} placeholder="Ex: 15"/>
+          <div>
+            <Inp label="Tempo mínimo do evento para ativar automaticamente (minutos)" type="number" min="1" step="15" value={form.tempoMin??180} onChange={e=>setForm(f=>({...f,tempoMin:+e.target.value}))} placeholder="180"/>
+            <div style={{fontSize:11,color:"var(--text3)",marginTop:4}}>
+              {(()=>{const t=form.tempoMin??180;return t>=60?`= ${Math.floor(t/60)}h${t%60?String(t%60).padStart(2,"0")+"min":""}`:t+"min";})()} · Ex: 180 = 3h, 240 = 4h, 90 = 1h30min
+            </div>
+          </div>
           {!form.id&&(
             <Inp label="ID interno (gerado automaticamente)" value={form.label?.toLowerCase().replace(/\s+/g,"_").replace(/[^a-z0-9_]/g,"")||""} readOnly style={{opacity:0.5}} placeholder="gerado a partir do nome"/>
           )}
@@ -4549,6 +4654,7 @@ function App(){
     setPerfil(p=>({...p,plano_cancelado_em:new Date().toISOString()}));
   }
 }}/>}
+            {aba==="ranking"&&<AbaRanking freelancers={fl} eventos={ev} adminId={user.id}/>}
             {aba==="relatorios"&&<AbaRelatorios eventos={ev} setEventos={setEvS} freelancers={fl} funcoes={funcoes}/>}
           </main>
         </div>

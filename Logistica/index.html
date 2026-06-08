@@ -245,7 +245,7 @@ function AbaAoVivo({adminId}) {
               {r.horario_saida_calculado && (
                 <span>🚀 Saída: {new Date(r.horario_saida_calculado).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span>
               )}
-              {r.distancia_km && <span>🛣️ {r.distancia_km} km</span>}
+              {r.distancia_km && <span>🛣️ {r.tipo_rota!=='ida_fica'?`${Math.round(r.distancia_km*2*10)/10} km (ida+volta)`:r.distancia_km+' km'}</span>}
             </div>
             <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center'}}>
               <Btn onClick={()=>abrirNav(r.id)} style={{background:'#F0FDF4',color:'#16A34A',fontSize:12}}>🗺️ Navegar</Btn>
@@ -654,7 +654,7 @@ function AbaRotas({adminId}) {
                 {r.horario_saida_calculado && (
                   <span>🚀 {new Date(r.horario_saida_calculado).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'})}</span>
                 )}
-                {r.distancia_km && <span>🛣️ {r.distancia_km} km · {r.duracao_min} min</span>}
+                {r.distancia_km && <span>🛣️ {r.tipo_rota!=='ida_fica'?`${Math.round(r.distancia_km*2*10)/10} km ida+volta`:r.distancia_km+' km'} · {r.tipo_rota!=='ida_fica'?r.duracao_min*2:r.duracao_min} min</span>}
               </div>
 
               {/* Timeline de paradas */}

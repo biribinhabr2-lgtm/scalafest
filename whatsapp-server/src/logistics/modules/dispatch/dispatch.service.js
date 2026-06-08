@@ -161,11 +161,14 @@ async function dashboard(adminId) {
     new Date(r.horario_chegada_real) > new Date(r.horario_chegada_calculado)
   );
 
-  const totalKm = finalizadas.reduce((s, r) => s + (r.distancia_km || 0), 0);
+  // Para rotas com retorno (tipo_rota != 'ida_fica'), conta o percurso de volta também
+  const kmTotal = (r) => (r.distancia_km || 0) * (r.tipo_rota !== 'ida_fica' ? 2 : 1);
+
+  const totalKm = finalizadas.reduce((s, r) => s + kmTotal(r), 0);
 
   // Combustível real: usa consumo_medio do veículo por rota, fallback 12 km/L
   const combustivelEstimado = finalizadas.reduce((s, r) => {
-    const km      = r.distancia_km || 0;
+    const km      = kmTotal(r);
     const consumo = r.veiculo?.consumo_medio || 12;
     return s + (km / consumo);
   }, 0);
