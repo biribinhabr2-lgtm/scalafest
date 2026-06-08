@@ -1766,7 +1766,7 @@ function AbaFeedbackAdmin({freelancers,eventos,adminId,perguntas,setPerguntas}){
 
 // ── ABA RELATÓRIOS ─────────────────────────────────────────────────────────────
 // ── ABA RANKING ───────────────────────────────────────────────────────────────
-function AbaRanking({freelancers,eventos,adminId}){
+function AbaRanking({freelancers,eventos,adminId,modoFuncionario=false}){
   const mesAtual=new Date().toISOString().slice(0,7);
   const[mesRanking,setMesRanking]=useState(mesAtual);
   const[feedbackCounts,setFeedbackCounts]=useState({});
@@ -1815,8 +1815,8 @@ function AbaRanking({freelancers,eventos,adminId}){
         <p style={{color:"var(--text2)",margin:"4px 0 0",fontSize:13}}>Quem mais trabalhou e quem mais deu feedback</p>
       </div>
 
-      {/* Seletor de mês */}
-      {mesesDisp.length>0&&(
+      {/* Seletor de mês — só no modo admin (usado pelo ranking de trabalho) */}
+      {!modoFuncionario&&mesesDisp.length>0&&(
         <div style={{marginBottom:24}}>
           <div style={{fontSize:11,fontWeight:700,color:"var(--text2)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8}}>Mês — ranking de trabalho</div>
           <div style={{display:"flex",gap:6,overflowX:"auto",WebkitOverflowScrolling:"touch",paddingBottom:4}}>
@@ -1830,8 +1830,8 @@ function AbaRanking({freelancers,eventos,adminId}){
       )}
 
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(300px,1fr))",gap:20}}>
-        {/* Trabalho */}
-        <div>
+        {/* Trabalho — só admin vê */}
+        {!modoFuncionario&&<div>
           <div style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
             💪 Mais trabalhou — {MESES[mo]} {y}
             <span style={{background:"var(--surface)",borderRadius:20,fontSize:11,padding:"2px 8px",color:"var(--text3)"}}>{rankTrabalho.length}</span>
@@ -1840,9 +1840,9 @@ function AbaRanking({freelancers,eventos,adminId}){
             ?<div style={{textAlign:"center",color:"var(--text3)",padding:"32px 0",fontSize:13,background:"var(--card)",border:"1px solid var(--border)",borderRadius:12}}>Sem eventos neste mês</div>
             :<div style={{display:"flex",flexDirection:"column",gap:8}}>{rankTrabalho.map((r,i)=><ItemRanking key={r.f.id} item={r} i={i} corVal="#0C6E7E"/>)}</div>
           }
-        </div>
+        </div>}
 
-        {/* Feedback */}
+        {/* Feedback — admin e funcionário vêem */}
         <div>
           <div style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:12,display:"flex",alignItems:"center",gap:8}}>
             💬 Mais feedback dado
@@ -2919,12 +2919,14 @@ function AppFuncionario({user,perfil,onLogout,adminId,perguntas}){
     {id:"treinamentos_admin",label:"Treinos"},
     {id:"disponibilidade",label:"Minha Disp."},
     {id:"feedback",label:"Feedback"},
+    {id:"ranking",label:"Ranking"},
   ]:[
     {id:"disponibilidade",label:"Disponibilidade"},
     {id:"eventos",label:"Meus Eventos"},
     {id:"ganhos",label:"Ganhos"},
     {id:"treinamentos",label:"Treinamentos"},
     {id:"feedback",label:"Feedback"},
+    {id:"ranking",label:"Ranking"},
   ];
   const ganhosPorMes=meusEventos.reduce((acc,ev)=>{
     const mb=ev.equipe?.find(m=>m.freelancerId===meuFl?.id);
@@ -3005,6 +3007,7 @@ function AppFuncionario({user,perfil,onLogout,adminId,perguntas}){
             </div>
           )}
           {aba==="disponibilidade"&&<DisponibilidadeFuncionario user={user} perfil={perfil} disp={disp} setDisp={setDispS}/>}
+          {aba==="ranking"&&<AbaRanking freelancers={freelancers} eventos={eventos} adminId={resolvedAdmin} modoFuncionario/>}
         {aba==="eventos_admin"&&<AbaEventos eventos={eventos} setEventos={async(v)=>{const next=typeof v==="function"?v(eventos):v;setEventos(next);await cloudSave(resolvedAdmin,"eventos",next);}} freelancers={freelancers} disponibilidade={{}} funcoes={funcoes}/>}
         {aba==="disponibilidade_admin"&&<AbaDisponibilidade freelancers={freelancers} disponibilidade={{}} setDisponibilidade={()=>{}}/>}
         {aba==="treinamentos_admin"&&<AbaTreinamentos treinamentos={treinamentos} setTreinamentos={async(v)=>{const next=typeof v==="function"?v(treinamentos):v;setTreinamentos(next);await cloudSave(resolvedAdmin,"treinamentos",next);}} adminId={resolvedAdmin} user={user} perfil={perfil} freelancers={freelancers}/>}
