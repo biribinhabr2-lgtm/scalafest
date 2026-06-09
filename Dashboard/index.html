@@ -1873,7 +1873,7 @@ function AbaRelatorios({eventos,setEventos,freelancers,funcoes}){
   const[pdfAte,setPdfAte]=useState("");
   const fl=id=>freelancers.find(f=>f.id===id);
   const fnCor=nome=>(funcoes.find(f=>f.nome===nome)||{}).cor||"var(--text3)";
-  const todos=eventos.flatMap(ev=>(ev.equipe||[]).map((m,idx)=>({eventoId:ev.id,eventoNome:ev.nome,data:ev.data,local:ev.local||"",horaInicio:ev.horaInicio||"",horaFim:ev.horaFim||"",freelancer:fl(m.freelancerId),funcao:m.funcao,cache:calcCache(m,ev),cacheBase:m.cache,bonus:m.bonus,pago:m.pago,idx,freelancerId:m.freelancerId}))).filter(r=>r.freelancer);
+  const todos=eventos.flatMap(ev=>(ev.equipe||[]).map((m,idx)=>({eventoId:ev.id,eventoNome:ev.nome,data:ev.data,local:ev.local||"",horaInicio:ev.horaInicio||"",horaFim:ev.horaFim||"",freelancer:fl(m.freelancerId),funcao:m.funcao,obs:m.obs||"",cache:calcCache(m,ev),cacheBase:m.cache,bonus:m.bonus,pago:m.pago,idx,freelancerId:m.freelancerId}))).filter(r=>r.freelancer);
   const filt=todos.filter(r=>{if(fStatus==="pago"&&!r.pago)return false;if(fStatus==="pendente"&&r.pago)return false;if(fPessoa&&r.freelancer?.id!==+fPessoa)return false;if(fMes&&!r.data.startsWith(fMes))return false;return true;}).sort((a,b)=>(a.data||"").localeCompare(b.data||"")||(a.horaInicio||"").localeCompare(b.horaInicio||""));
   const tPend=filt.filter(r=>!r.pago).reduce((s,r)=>s+r.cache,0);const tPago=filt.filter(r=>r.pago).reduce((s,r)=>s+r.cache,0);const tGeral=filt.reduce((s,r)=>s+r.cache,0);
   const togPago=(eid,fid)=>setEventos(ev=>ev.map(e=>e.id===eid?{...e,equipe:e.equipe.map(m=>m.freelancerId===fid?{...m,pago:!m.pago}:m)}:e));
@@ -1924,6 +1924,7 @@ function AbaRelatorios({eventos,setEventos,freelancers,funcoes}){
       .ev-nome{font-weight:600;font-size:13px;flex:1}
       .ev-info{font-size:11px;color:#6b7280;margin-top:2px}
       .ev-fn{display:inline-block;background:#8b5cf615;color:#7c3aed;border:1px solid #8b5cf630;border-radius:12px;font-size:11px;font-weight:700;padding:1px 8px;margin-top:3px}
+      .ev-obs{display:flex;align-items:flex-start;gap:5px;background:#fef9c3;border:1px solid #fde047;border-radius:6px;padding:4px 10px;margin-top:5px;font-size:11px;color:#78350f;line-height:1.4}
       .cache{font-weight:800;color:#0C6E7E;font-size:14px;white-space:nowrap}
       .fl-total{text-align:right;padding:8px 16px;background:#f8fafc;font-size:13px;font-weight:800;color:#0C6E7E;border-top:1px solid #e5e7eb}
       .resumo{margin-top:40px;padding-top:20px;border-top:2px solid #0C6E7E}
@@ -1966,6 +1967,7 @@ function AbaRelatorios({eventos,setEventos,freelancers,funcoes}){
             <div class="ev-info">📅 ${fmtBR(r.data)} &nbsp;⏰ ${r.horaInicio}–${r.horaFim}</div>
             <div class="ev-info">📍 ${r.local||"—"}</div>
             ${r.funcao?`<span class="ev-fn">🎭 ${r.funcao}</span>`:""}
+            ${r.obs?`<div class="ev-obs"><span>📝</span><span>${r.obs}</span></div>`:""}
           </div>
           <div class="cache">R$ ${r.cache.toFixed(2).replace(".",",")}</div>
         </div>`;
