@@ -337,6 +337,10 @@ const evSvc = (() => {
     google_event_id: r.google_event_id || null,
     google_calendar_synced: r.google_calendar_synced || false,
     updatedAt: r.updated_at || null,
+    titulo_original: r.titulo_original || null,
+    clienteTriagem: r.cliente || null,
+    triagem_status: r.triagem_status || 'pendente',
+    duracao_total_min: r.duracao_total_min || null,
     equipe: (r.event_team || []).map(_mapTeamRow),
   });
   const _unmap = d => {
@@ -410,7 +414,9 @@ const evSvc = (() => {
         const {error: tErr} = await sb.from("event_team").insert(teamRows);
         if (tErr) console.error("[evSvc.create] team:", tErr.message);
       }
-      return _refetch(tenantId, eventId);
+      const newEv = await _refetch(tenantId, eventId);
+      runTriagemEvento(tenantId, eventId, newEv.nome).catch(e => console.warn('[triage]', e.message));
+      return newEv;
     },
     async update(tenantId, id, patch) {
       const {equipe: _eq, id: _id, legacy_id: _lid, _teamId: _tid, updatedAt: _ua, ...rest} = patch;
@@ -474,6 +480,109 @@ const evSvc = (() => {
     },
   };
 })();
+
+// ── TRIAGEM: lógica de reconhecimento automático de serviços ─────────────────
+// (function declarations → hoisted, disponíveis antes da chamada em evSvc.create)
+function _sfNormNome(s) {
+  return s.toLowerCase().normalize('NFD')
+    .replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9\s]/g,' ')
+    .replace(/\s+/g,' ').trim();
+}
+function _sfExtrairDuracao(texto) {
+  let duracaoMin=null,semDuracao=texto;
+  let m=texto.match(/\b(\d{1,2}):(\d{2})\b/);
+  if(m){duracaoMin=parseInt(m[1],10)*60+parseInt(m[2],10);semDuracao=texto.slice(0,m.index)+texto.slice(m.index+m[0].length);}
+  else{
+    m=texto.match(/\b(\d{1,2})\s*h\s*(\d{1,2})?\s*(?:min(?:utos?)?)?\b/i);
+    if(m){duracaoMin=parseInt(m[1],10)*60+(m[2]?parseInt(m[2],10):0);semDuracao=texto.slice(0,m.index)+texto.slice(m.index+m[0].length);}
+    else{m=texto.match(/\b(\d{1,3})\s*min(?:utos?)?\b/i);if(m){duracaoMin=parseInt(m[1],10);semDuracao=texto.slice(0,m.index)+texto.slice(m.index+m[0].length);}}
+  }
+  return{semDuracao:semDuracao.trim(),duracaoMin};
+}
+function _sfParseTitulo(titulo) {
+  if(!titulo||!titulo.trim())return{blocos:[],cliente:null,restos:''};
+  const s=titulo.trim();
+  const SEP=/\s*[-–—]\s*/g;let lastMatch=null,m;
+  while((m=SEP.exec(s))!==null)lastMatch=m;
+  let corpo,cliente;
+  if(lastMatch){
+    const cand=s.slice(lastMatch.index+lastMatch[0].length).trim();
+    if(cand&&/[a-záéíóúãõàâêîôûüçñ]/i.test(cand)&&!cand.includes('+')){corpo=s.slice(0,lastMatch.index).trim();cliente=cand;}
+    else{corpo=s;cliente=null;}
+  }else{corpo=s;cliente=null;}
+  const blocos=corpo.split('+').map(b=>b.trim()).filter(Boolean).map(raw=>{
+    const{semDuracao,duracaoMin}=_sfExtrairDuracao(raw);
+    return{nomeBruto:raw,nomeNormalizado:_sfNormNome(semDuracao),duracaoMin};
+  });
+  return{blocos,cliente,restos:corpo};
+}
+function _sfBigram(a,b) {
+  if(!a||!b)return 0;if(a===b)return 1;
+  function bg(s){const mp=new Map();for(let i=0;i<s.length-1;i++){const k=s.slice(i,i+2);mp.set(k,(mp.get(k)||0)+1);}return mp;}
+  const ma=bg(a),mb=bg(b);let inter=0;
+  for(const[k,v]of ma)inter+=Math.min(v,mb.get(k)||0);
+  const ta=Math.max(a.length-1,0),tb=Math.max(b.length-1,0);
+  return ta+tb===0?0:(2*inter)/(ta+tb);
+}
+function _sfMatchServico(nomeNorm,allKw) {
+  if(!nomeNorm||!allKw||!allKw.length)return null;
+  const ex=allKw.filter(k=>k.keyword===nomeNorm);
+  if(ex.length===1)return ex[0].serviceId;
+  if(ex.length>1){const ids=new Set(ex.map(k=>k.serviceId));return ids.size===1?[...ids][0]:null;}
+  const MIN=3,cont=allKw.filter(k=>k.keyword.length>=MIN&&nomeNorm.length>=MIN&&(nomeNorm.includes(k.keyword)||k.keyword.includes(nomeNorm)));
+  if(cont.length>0){
+    const bySvc=new Map();for(const k of cont){if(!bySvc.has(k.serviceId))bySvc.set(k.serviceId,[]);bySvc.get(k.serviceId).push(k.keyword);}
+    if(bySvc.size===1)return[...bySvc.keys()][0];
+    let bestId=null,bestLen=-1,amb=false;
+    for(const[sid,kws]of bySvc){const mx=Math.max(...kws.map(k=>k.length));if(mx>bestLen){bestLen=mx;bestId=sid;amb=false;}else if(mx===bestLen)amb=true;}
+    return amb?null:bestId;
+  }
+  const scored=allKw.map(k=>({serviceId:k.serviceId,score:_sfBigram(nomeNorm,k.keyword)})).filter(r=>r.score>=0.6);
+  if(!scored.length)return null;
+  scored.sort((a,b)=>b.score-a.score);
+  if(scored.length>=2&&scored[0].score-scored[1].score<0.15){
+    const top2=new Set(scored.slice(0,2).map(r=>r.serviceId));
+    if(top2.size>1)return null;
+  }
+  return scored[0].serviceId;
+}
+async function _sfAplicarKit(tenantId,eventId,serviceId) {
+  try{
+    const{data:svc}=await sb.from('services').select('template_kit_id').eq('id',serviceId).maybeSingle();
+    if(!svc?.template_kit_id)return;
+    const{data:items}=await sb.from('event_items').select('id').eq('event_id',eventId).limit(1);
+    if(items&&items.length>0)return; // já tem itens, não sobrescreve
+    const{data:kitItems}=await sb.from('template_kit_items').select('*').eq('kit_id',svc.template_kit_id).order('ordem');
+    if(!kitItems||!kitItems.length)return;
+    const rows=kitItems.map((ki,i)=>({tenant_id:tenantId,event_id:eventId,kit_item_id:ki.id,categoria:ki.categoria||'checklist',descricao:ki.nome,obs:ki.obs||null,ordem:ki.ordem??i,concluido:false}));
+    await sb.from('event_items').insert(rows);
+  }catch(e){console.warn('[triage kit]',e.message);}
+}
+async function runTriagemEvento(tenantId,eventId,titulo) {
+  try{
+    // Carregar keywords de todos os serviços do tenant
+    const{data:kws}=await sb.from('service_keywords').select('service_id,keyword').limit(2000);
+    const allKw=(kws||[]).map(k=>({serviceId:k.service_id,keyword:k.keyword}));
+    // Também buscar via join se necessário
+    const{blocos,cliente}=_sfParseTitulo(titulo);
+    if(!blocos.length){
+      await sb.from('events').update({titulo_original:titulo,triagem_status:'nao_identificado'}).eq('id',eventId).eq('tenant_id',tenantId);
+      return;
+    }
+    const duracaoTotal=blocos.reduce((s,b)=>s+(b.duracaoMin||0),0);
+    const matched=blocos.map((b,i)=>({...b,serviceId:_sfMatchServico(b.nomeNormalizado,allKw),ordem:i}));
+    const allFound=matched.every(b=>b.serviceId);
+    const status=allFound?'reconhecido':'nao_identificado';
+    await sb.from('events').update({titulo_original:titulo,cliente:cliente||null,duracao_total_min:duracaoTotal||null,triagem_status:status}).eq('id',eventId).eq('tenant_id',tenantId);
+    // Substituir event_services
+    await sb.from('event_services').delete().eq('event_id',eventId);
+    if(matched.length>0){
+      await sb.from('event_services').insert(matched.map(b=>({event_id:eventId,service_id:b.serviceId||null,nome_bruto:b.nomeBruto,duracao_min:b.duracaoMin||null,ordem:b.ordem})));
+    }
+    // Aplicar kit para cada serviço reconhecido
+    for(const b of matched){if(b.serviceId)await _sfAplicarKit(tenantId,eventId,b.serviceId);}
+  }catch(e){console.warn('[runTriagemEvento]',e.message);}
+}
 
 // Helpers de cross-referência: busca confirmação por id novo (UUID) ou legacy_id antigo
 // confirmacoesMap (admin): { [fid]: { [eventoId]: conf } }
@@ -786,11 +895,12 @@ const NAV_ICONS={
   minha_escala:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 9h18M8 2v4M16 2v4M12 13v4M10 15h4"/></svg>,
   modelos:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>,
   servicos:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>,
+  triagem:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 3H2l8 9.46V19l4 2V12.46z"/></svg>,
 };
 
-const Sidebar=({aba,setAba,mobile,onReset,userEmail,onLogout,onRefresh,onSyncCalendar,perfil})=>{
+const Sidebar=({aba,setAba,mobile,onReset,userEmail,onLogout,onRefresh,onSyncCalendar,perfil,badges={}})=>{
   const GROUPS=[
-    [{id:"inicio",label:"Início"},{id:"eventos",label:"Eventos"},{id:"checklist",label:"Checklist"},{id:"modelos",label:"Modelos"},{id:"equipe",label:"Equipe"},{id:"disponibilidade",label:"Disponib."}],
+    [{id:"inicio",label:"Início"},{id:"eventos",label:"Eventos"},{id:"checklist",label:"Checklist"},{id:"triagem",label:"Triagem"},{id:"modelos",label:"Modelos"},{id:"equipe",label:"Equipe"},{id:"disponibilidade",label:"Disponib."}],
     [{id:"servicos",label:"Serviços"},{id:"funcoes",label:"Funções"},{id:"bonificacoes",label:"Bônus"},{id:"treinamentos",label:"Treinos"},{id:"feedback",label:"Feedback"}],
     [{id:"ranking",label:"Ranking"},{id:"relatorios",label:"Relatórios"},{id:"plano",label:"Plano"}],
   ];
@@ -809,6 +919,7 @@ const Sidebar=({aba,setAba,mobile,onReset,userEmail,onLogout,onRefresh,onSyncCal
               <span style={{display:"flex",position:"relative"}}>
                 <Icon/>
                 {n.locked&&<span style={{position:"absolute",bottom:-3,right:-5,fontSize:9,lineHeight:1}}>🔒</span>}
+                {!n.locked&&badges[n.id]>0&&<span style={{position:"absolute",top:-4,right:-6,background:"#EF4444",color:"#fff",borderRadius:20,fontSize:8,fontWeight:700,padding:"0 4px",lineHeight:"13px"}}>{badges[n.id]}</span>}
               </span>
               <span>{n.label.replace("Disponib.","Disp.").replace("Relatórios","Financ.").replace("Treinamentos","Treinos")}</span>
             </button>
@@ -845,7 +956,8 @@ const Sidebar=({aba,setAba,mobile,onReset,userEmail,onLogout,onRefresh,onSyncCal
                   {n.locked&&<span style={{position:"absolute",bottom:-3,right:-5,fontSize:9,lineHeight:1}}>🔒</span>}
                 </span>
                 <span style={{flex:1}}>{n.label}</span>
-                {!n.locked&&act&&<span style={{width:5,height:5,borderRadius:"50%",background:"#0C6E7E",flexShrink:0}}/>}
+                {!n.locked&&badges[n.id]>0&&<span style={{background:"#EF4444",color:"#fff",borderRadius:20,fontSize:10,fontWeight:700,padding:"1px 6px",flexShrink:0,lineHeight:"16px"}}>{badges[n.id]}</span>}
+                {!n.locked&&act&&!badges[n.id]&&<span style={{width:5,height:5,borderRadius:"50%",background:"#0C6E7E",flexShrink:0}}/>}
                 {n.locked&&<span style={{fontSize:9,color:"#4B5563",background:"#1E293B",borderRadius:4,padding:"1px 5px",flexShrink:0}}>Pro</span>}
               </button>
             );})}
@@ -1624,6 +1736,181 @@ function AbaServicos({tenantId,funcoes}){
         titulo={`Excluir "${confirmar?.nome}"?`}
         descricao="Remove o serviço e todas as suas palavras-chave e funções. Eventos existentes não são afetados."
       />
+    </div>
+  );
+}
+
+// ── ABA TRIAGEM — revisão de reconhecimento automático de serviços ────────────
+function AbaTriagem({tenantId}){
+  const[eventos,setEventos]=React.useState([]);
+  const[servicos,setServicos]=React.useState([]);
+  const[loading,setLoading]=React.useState(true);
+  const[saving,setSaving]=React.useState(null); // eventId being saved
+  const[criarModal,setCriarModal]=React.useState(null); // {eventId, blocoIdx, nomeBruto}
+  const[novoNome,setNovoNome]=React.useState('');
+  // Per-event local overrides: {[eventId]: {[blocoIdx]: serviceId|null}}
+  const[sel,setSel]=React.useState({});
+  const{addToast}=React.useContext(ToastContext);
+
+  const carregar=React.useCallback(async()=>{
+    setLoading(true);
+    try{
+      const[{data:evs},{data:svcs}]=await Promise.all([
+        sb.from('events').select('id,nome,data,hora_inicio,hora_fim,titulo_original,cliente,triagem_status')
+          .eq('tenant_id',tenantId).in('triagem_status',['pendente','nao_identificado']).order('data',{ascending:true}).limit(200),
+        sb.from('services').select('id,nome').eq('tenant_id',tenantId).eq('ativo',true).order('nome'),
+      ]);
+      const evIds=(evs||[]).map(e=>e.id);
+      let svcRows=[];
+      if(evIds.length>0){
+        const{data:sr}=await sb.from('event_services').select('id,event_id,service_id,nome_bruto,duracao_min,ordem').in('event_id',evIds).order('ordem');
+        svcRows=sr||[];
+      }
+      const svcByEvent={};
+      for(const r of svcRows){
+        if(!svcByEvent[r.event_id])svcByEvent[r.event_id]=[];
+        svcByEvent[r.event_id].push(r);
+      }
+      setEventos((evs||[]).map(e=>({...e,blocos:(svcByEvent[e.id]||[]).sort((a,b)=>a.ordem-b.ordem)})));
+      setServicos(svcs||[]);
+    }catch(e){addToast('Erro ao carregar triagem: '+e.message,'erro');}
+    setLoading(false);
+  },[tenantId]);
+
+  React.useEffect(()=>{carregar();},[carregar]);
+
+  const getServiceId=(eventId,blocoIdx,defaultId)=>{
+    return sel[eventId]?.[blocoIdx]!==undefined?sel[eventId]?.[blocoIdx]:defaultId;
+  };
+  const setSvcSel=(eventId,blocoIdx,serviceId)=>{
+    setSel(s=>({...s,[eventId]:{...s[eventId],[blocoIdx]:serviceId}}));
+  };
+
+  const confirmar=async(ev)=>{
+    setSaving(ev.id);
+    try{
+      // Aplicar seleções do usuário nos blocos
+      const blocos=ev.blocos;
+      for(let i=0;i<blocos.length;i++){
+        const chosenId=getServiceId(ev.id,i,blocos[i].service_id);
+        if(chosenId!==blocos[i].service_id){
+          // Atualizar event_services
+          await sb.from('event_services').update({service_id:chosenId}).eq('id',blocos[i].id);
+          // Aprender keyword
+          if(chosenId&&blocos[i].nome_bruto){
+            const kw=_sfNormNome(blocos[i].nome_bruto);
+            if(kw.length>=2){
+              await sb.from('service_keywords').upsert({service_id:chosenId,keyword:kw,origem:'aprendido'},{onConflict:'service_id,keyword',ignoreDuplicates:true});
+            }
+          }
+          // Aplicar kit
+          await _sfAplicarKit(tenantId,ev.id,chosenId);
+        }
+      }
+      await sb.from('events').update({triagem_status:'confirmado'}).eq('id',ev.id).eq('tenant_id',tenantId);
+      addToast('Evento confirmado','ok');
+      setEventos(prev=>prev.filter(e=>e.id!==ev.id));
+    }catch(e){addToast('Erro: '+e.message,'erro');}
+    setSaving(null);
+  };
+
+  const criarServico=async()=>{
+    if(!novoNome.trim()||!criarModal)return;
+    try{
+      const{data:svc,error}=await sb.from('services').insert({tenant_id:tenantId,nome:novoNome.trim()}).select('id,nome').single();
+      if(error)throw new Error(error.message);
+      const kw=_sfNormNome(novoNome.trim());
+      if(kw.length>=2)await sb.from('service_keywords').insert({service_id:svc.id,keyword:kw,origem:'manual'});
+      setServicos(s=>[...s,svc].sort((a,b)=>a.nome.localeCompare(b.nome)));
+      setSvcSel(criarModal.eventId,criarModal.blocoIdx,svc.id);
+      addToast(`Serviço "${svc.nome}" criado`,'ok');
+      setCriarModal(null);setNovoNome('');
+    }catch(e){addToast('Erro: '+e.message,'erro');}
+  };
+
+  const fmtD=d=>{if(!d)return'';const[y,m,dv]=d.split('-');return`${dv}/${m}/${y}`;};
+
+  if(loading)return<div style={{padding:'40px 28px',color:'var(--text3)',fontSize:14}}>Carregando triagem…</div>;
+
+  return(
+    <div style={{padding:'24px 28px',flex:1,overflowY:'auto'}}>
+      <div style={{marginBottom:20,display:'flex',alignItems:'center',justifyContent:'space-between',flexWrap:'wrap',gap:10}}>
+        <div>
+          <h2 style={{color:'var(--text)',margin:'0 0 2px',fontSize:18,fontWeight:600}}>Triagem de Eventos</h2>
+          <p style={{color:'var(--text2)',margin:0,fontSize:13}}>{eventos.length} evento{eventos.length!==1?'s':''} pendente{eventos.length!==1?'s':''} de revisão</p>
+        </div>
+        <button onClick={carregar} style={{background:'transparent',border:'1px solid var(--border)',borderRadius:8,padding:'7px 14px',fontSize:12,color:'var(--text2)',cursor:'pointer',fontFamily:'inherit'}}>↻ Atualizar</button>
+      </div>
+      {eventos.length===0&&<div style={{textAlign:'center',color:'var(--text3)',padding:'48px 0',fontSize:14}}>Nenhum evento pendente de triagem.</div>}
+      <div style={{display:'flex',flexDirection:'column',gap:14}}>
+        {eventos.map(ev=>(
+          <div key={ev.id} style={{background:'var(--card)',border:'1px solid var(--border)',borderRadius:12,overflow:'hidden'}}>
+            {/* Header do evento */}
+            <div style={{padding:'12px 16px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}>
+              <div style={{minWidth:0}}>
+                <div style={{fontWeight:700,color:'var(--text)',fontSize:14,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{ev.titulo_original||ev.nome}</div>
+                <div style={{fontSize:12,color:'var(--text2)',marginTop:2}}>
+                  {fmtD(ev.data)}{ev.hora_inicio?' · '+ev.hora_inicio.slice(0,5):''}
+                  {ev.cliente&&<span style={{marginLeft:8,color:'var(--text3)'}}>— {ev.cliente}</span>}
+                </div>
+              </div>
+              <span style={{fontSize:11,fontWeight:600,padding:'3px 9px',borderRadius:6,flexShrink:0,
+                background:ev.triagem_status==='nao_identificado'?'#FEF3C7':'#EFF6FF',
+                color:ev.triagem_status==='nao_identificado'?'#92400E':'#1D4ED8'}}>
+                {ev.triagem_status==='nao_identificado'?'Não identificado':'Pendente'}
+              </span>
+            </div>
+            {/* Blocos de serviço */}
+            <div style={{padding:'12px 16px',display:'flex',flexDirection:'column',gap:8}}>
+              {ev.blocos.length===0&&<div style={{fontSize:13,color:'var(--text3)'}}>Título sem blocos de serviço reconhecíveis.</div>}
+              {ev.blocos.map((b,i)=>{
+                const chosen=getServiceId(ev.id,i,b.service_id);
+                return(
+                  <div key={i} style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+                    <span style={{fontSize:12,color:'var(--text2)',minWidth:0,flex:'0 0 auto',maxWidth:180,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}} title={b.nome_bruto}>
+                      {b.nome_bruto}
+                    </span>
+                    {b.duracao_min&&<span style={{fontSize:11,color:'var(--text3)',flexShrink:0}}>{b.duracao_min}min</span>}
+                    <span style={{color:'var(--text3)',fontSize:11,flexShrink:0}}>→</span>
+                    <select value={chosen||''} onChange={e=>setSvcSel(ev.id,i,e.target.value||null)}
+                      style={{flex:1,minWidth:120,border:'1px solid var(--border)',borderRadius:7,padding:'5px 8px',fontSize:12,color:'var(--text)',background:'var(--bg)',fontFamily:'inherit',cursor:'pointer'}}>
+                      <option value=''>— Não identificado —</option>
+                      {servicos.map(s=><option key={s.id} value={s.id}>{s.nome}</option>)}
+                    </select>
+                    <button onClick={()=>{setCriarModal({eventId:ev.id,blocoIdx:i,nomeBruto:b.nome_bruto});setNovoNome(b.nome_bruto||'');}}
+                      style={{flexShrink:0,background:'transparent',border:'1px solid var(--border)',borderRadius:7,padding:'5px 9px',fontSize:11,color:'var(--text2)',cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap'}}>
+                      + Criar
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Rodapé */}
+            <div style={{padding:'10px 16px',borderTop:'1px solid var(--border)',display:'flex',justifyContent:'flex-end'}}>
+              <button onClick={()=>confirmar(ev)} disabled={saving===ev.id}
+                style={{background:'#0C6E7E',border:'none',borderRadius:8,padding:'7px 20px',fontSize:13,fontWeight:700,color:'#fff',cursor:saving===ev.id?'default':'pointer',fontFamily:'inherit',opacity:saving===ev.id?0.7:1}}>
+                {saving===ev.id?'Salvando…':'✓ Confirmar'}
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+      {/* Mini-modal criar serviço */}
+      {criarModal&&(
+        <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000,padding:16}} onClick={e=>e.target===e.currentTarget&&setCriarModal(null)}>
+          <div style={{background:'var(--card)',borderRadius:14,padding:24,width:'100%',maxWidth:380,boxShadow:'0 16px 48px rgba(0,0,0,.3)'}}>
+            <div style={{fontWeight:700,fontSize:16,color:'var(--text)',marginBottom:4}}>Criar serviço</div>
+            <div style={{fontSize:12,color:'var(--text2)',marginBottom:14}}>Bloco: <em>{criarModal.nomeBruto}</em></div>
+            <input value={novoNome} onChange={e=>setNovoNome(e.target.value)} placeholder="Nome do serviço"
+              style={{width:'100%',border:'1px solid var(--border)',borderRadius:8,padding:'8px 12px',fontSize:13,color:'var(--text)',background:'var(--bg)',fontFamily:'inherit',boxSizing:'border-box',marginBottom:14}}
+              onKeyDown={e=>e.key==='Enter'&&criarServico()}/>
+            <div style={{display:'flex',gap:8,justifyContent:'flex-end'}}>
+              <button onClick={()=>setCriarModal(null)} style={{background:'transparent',border:'1px solid var(--border)',borderRadius:8,padding:'7px 16px',fontSize:13,color:'var(--text2)',cursor:'pointer',fontFamily:'inherit'}}>Cancelar</button>
+              <button onClick={criarServico} disabled={!novoNome.trim()} style={{background:'#0C6E7E',border:'none',borderRadius:8,padding:'7px 18px',fontSize:13,fontWeight:700,color:'#fff',cursor:novoNome.trim()?'pointer':'default',fontFamily:'inherit',opacity:novoNome.trim()?1:0.5}}>Criar</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -4983,6 +5270,7 @@ function AppFuncionario({user,perfil,onLogout,adminId,perguntas}){
     {id:"minha_escala",label:"Minha Escala"},
     {id:"feedback",label:"Feedback"},
     {id:"ranking",label:"Ranking"},
+    {id:"triagem",label:"Triagem"},
   ]:[
     ...(isGestao?[{id:"todos_eventos",label:"Eventos"}]:[]),
     {id:"disponibilidade",label:"Disponibilidade"},
@@ -4996,6 +5284,7 @@ function AppFuncionario({user,perfil,onLogout,adminId,perguntas}){
       {id:"checklist",label:"Checklist"},
       {id:"modelos",label:"Modelos"},
       {id:"servicos",label:"Serviços"},
+      {id:"triagem",label:"Triagem"},
     ]:[]),
   ];
   const ganhosPorMes=meusEventos.reduce((acc,ev)=>{
@@ -5166,6 +5455,7 @@ function AppFuncionario({user,perfil,onLogout,adminId,perguntas}){
         {aba==="checklist"&&<GestaoOnly nivelAcesso={nivelAcesso}><ChecklistPage eventos={eventos} tenantId={resolvedAdmin}/></GestaoOnly>}
         {aba==="modelos"&&<GestaoOnly nivelAcesso={nivelAcesso}><AbaModelos tenantId={resolvedAdmin}/></GestaoOnly>}
         {aba==="servicos"&&<GestaoOnly nivelAcesso={nivelAcesso}><AbaServicos tenantId={resolvedAdmin} funcoes={funcoes}/></GestaoOnly>}
+        {aba==="triagem"&&(isGestao||isSecretaria)&&<AbaTriagem tenantId={resolvedAdmin}/>}
         {aba==="minha_escala"&&<AbaMInhaEscala meuFl={meuFl} meusEventos={meusEventos} fnCor={fnCor} fmtD={fmtD} user={user} confirmacoes={confirmacoes} setConfirmacoes={setConfirmacoes} adminId={resolvedAdmin}/>}
         </main>
       </div>
@@ -6332,7 +6622,10 @@ function ModalSyncCalendar({userId,onClose,onImportDone}){
             await evSvc.create(userId,{nome:ev.summary,data,horaInicio,horaFim,tipo:"Outro",status:"Em negociação",local:"",obs:"",equipe:[],google_event_id:ev.id,google_calendar_synced:true});
             created++;
           }else{
-            await evSvc.update(userId,existing.id,{nome:ev.summary,data,horaInicio,horaFim});
+            const updatedEv=await evSvc.update(userId,existing.id,{nome:ev.summary,data,horaInicio,horaFim});
+            if(updatedEv?.triagem_status!=='confirmado'){
+              runTriagemEvento(userId,existing.id,ev.summary).catch(()=>{});
+            }
             updated++;
           }
         }catch(evErr){console.error("[importar] ev",ev.id,evErr.message);errors++;}
@@ -6444,7 +6737,10 @@ async function syncCalendarDoBrowser(userId){
         await evSvc.create(userId,{nome:ev.summary,data,horaInicio,horaFim,tipo:"Outro",status:"Em negociação",local:"",obs:"",equipe:[],google_event_id:ev.id,google_calendar_synced:true});
         created++;
       }else{
-        await evSvc.update(userId,existing.id,{nome:ev.summary,data,horaInicio,horaFim});
+        const updatedEv=await evSvc.update(userId,existing.id,{nome:ev.summary,data,horaInicio,horaFim});
+        if(updatedEv?.triagem_status!=='confirmado'){
+          runTriagemEvento(userId,existing.id,ev.summary).catch(()=>{});
+        }
         updated++;
       }
     }catch(evErr){console.error("[syncCalendar] ev",ev.id,evErr.message);errors++;}
@@ -6859,6 +7155,7 @@ function App(){
   const resetarDados=()=>{if(!window.confirm("Tem certeza?"))return;setFlS(FL_INIT);evSvc.deleteAll(user.id).then(()=>setEv([]));setDispS(DISP_INIT);setFuncoesS(FUNCOES_INIT);};
   const refresh=()=>{if(user)carregarDados(user.id);};
   const onSyncCalendar=()=>{if(user)setModalSyncOpen(true);};
+  const triageCount=ev.filter(e=>e.triagem_status==='pendente'||e.triagem_status==='nao_identificado').length;
 
   if(user===undefined||carregando)return <Loader/>;
   if(!user)return <TelaLogin onLogin={u=>setUser(u)}/>;
@@ -6900,7 +7197,7 @@ function App(){
       {/* ── DESKTOP layout: sticky sidebar + inner-scroll main ── */}
       {!mob&&(
         <div style={{display:"flex",height:"calc(100vh - 52px)",overflow:"hidden"}}>
-          <Sidebar aba={aba} setAba={setAba} onReset={resetarDados} userEmail={user.email} onLogout={logout} onRefresh={refresh} onSyncCalendar={onSyncCalendar} perfil={perfil}/>
+          <Sidebar aba={aba} setAba={setAba} onReset={resetarDados} userEmail={user.email} onLogout={logout} onRefresh={refresh} onSyncCalendar={onSyncCalendar} perfil={perfil} badges={{triagem:triageCount}}/>
           <main style={{flex:1,overflowY:"auto",position:"relative",background:"var(--bg)"}}>
             {salvando&&<div style={{position:"fixed",bottom:24,right:24,background:"#0F172A",borderRadius:12,padding:"9px 16px",fontSize:12,color:"#E2E8F0",zIndex:999,fontWeight:500,boxShadow:"0 8px 28px rgba(0,0,0,.35),0 0 0 1px rgba(255,255,255,.06)",display:"flex",alignItems:"center",gap:9,backdropFilter:"blur(8px)"}}>
               <div style={{width:7,height:7,borderRadius:"50%",background:"#0C6E7E",flexShrink:0,animation:"pulseDot 1.4s ease-in-out infinite"}}/>
@@ -6909,6 +7206,7 @@ function App(){
             {aba==="inicio"&&<AbaInicio eventos={ev} freelancers={fl} loading={carregando} setAba={setAba}/>}
             {aba==="eventos"&&<AbaEventos eventos={ev} setEventos={setEv} freelancers={fl} disponibilidade={disp} funcoes={funcoes} userId={user.id}/>}
             {aba==="checklist"&&<ChecklistPage eventos={ev} tenantId={user.id}/>}
+            {aba==="triagem"&&<AbaTriagem tenantId={user.id}/>}
             {aba==="modelos"&&<AbaModelos tenantId={user.id}/>}
             {aba==="equipe"&&<AbaEquipeAdmin freelancers={fl} setFreelancers={setFlS} eventos={ev} funcoes={funcoes} adminUser={user} maxFl={maxFl} onUpgrade={()=>setModalPlano(true)} temSecretaria={temSecretaria}/>}
             {aba==="funcoes"&&<AbaFuncoes funcoes={funcoes} setFuncoes={setFuncoesS}/>}
@@ -6940,6 +7238,7 @@ function App(){
           {aba==="inicio"&&<AbaInicio eventos={ev} freelancers={fl} loading={carregando} setAba={setAba}/>}
           {aba==="eventos"&&<AbaEventos eventos={ev} setEventos={setEv} freelancers={fl} disponibilidade={disp} funcoes={funcoes} userId={user.id}/>}
           {aba==="checklist"&&<ChecklistPage eventos={ev} tenantId={user.id}/>}
+          {aba==="triagem"&&<AbaTriagem tenantId={user.id}/>}
           {aba==="modelos"&&<AbaModelos tenantId={user.id}/>}
           {aba==="equipe"&&<AbaEquipeAdmin freelancers={fl} setFreelancers={setFlS} eventos={ev} funcoes={funcoes} adminUser={user} maxFl={maxFl} onUpgrade={()=>setModalPlano(true)} temSecretaria={temSecretaria}/>}
           {aba==="funcoes"&&<AbaFuncoes funcoes={funcoes} setFuncoes={setFuncoesS}/>}
@@ -6959,7 +7258,7 @@ function App(){
           {aba==="relatorios"&&<AbaRelatorios eventos={ev} setEventos={setEv} freelancers={fl} funcoes={funcoes} userId={user.id}/>}
         </main>
       )}
-      {mob&&<Sidebar aba={aba} setAba={setAba} mobile onReset={resetarDados} userEmail={user.email} onLogout={logout} onRefresh={refresh} perfil={perfil}/>}
+      {mob&&<Sidebar aba={aba} setAba={setAba} mobile onReset={resetarDados} userEmail={user.email} onLogout={logout} onRefresh={refresh} perfil={perfil} badges={{triagem:triageCount}}/>}
       {/* Modal de planos */}
       {modalPlano&&<TelaPagamento perfil={perfil} onClose={()=>setModalPlano(false)} onPlanoAtivado={onPlanoAtivado} userEmail={user.email} userId={user.id}/>}
       {/* Modal sync Calendar (acionado pelo botão ↻ Sync da sidebar) */}
