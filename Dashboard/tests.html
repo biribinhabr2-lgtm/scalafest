@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <title>EscalaFest — Testes Unitários</title>
+  <style>
+    body{font-family:monospace;padding:24px;background:#111;color:#e5e7eb;margin:0}
+    h1{color:#0C6E7E;font-size:18px;margin-bottom:20px}
+    .suite{margin-bottom:20px}
+    .suite-name{color:#a855f7;font-size:13px;font-weight:700;margin-bottom:6px}
+    .test{padding:4px 0;font-size:13px}
+    .pass{color:#4ade80}
+    .fail{color:#f87171}
+    .fail .msg{color:#fbbf24;font-size:11px;padding-left:20px}
+    #summary{margin-top:24px;padding:12px;border-radius:8px;font-size:14px;font-weight:700}
+    .ok{background:#166534;color:#4ade80}
+    .bad{background:#7f1d1d;color:#f87171}
+  </style>
+</head>
+<body>
+<h1>EscalaFest — Testes Unitários</h1>
+<div id="results"></div>
+<div id="summary"></div>
+<script>
+// ─── Utilidades de teste ────────────────────────────────────────────────────
+const suites=[];
+let currentSuite=null;
+function describe(name,fn){currentSuite={name,tests:[]};suites.push(currentSuite);fn();}
+function it(desc,fn){
+  let err=null;
+  try{fn();}catch(e){err=e;}
+  currentSuite.tests.push({desc,err});
+}
+function expect(val){
+  return{
+    toBe(exp){if(val!==exp)throw new Error(`Esperado ${JSON.stringify(exp)}, recebido ${JSON.stringify(val)}`);},
+    toEqual(exp){if(JSON.stringify(val)!==JSON.stringify(exp))throw new Error(`Esperado ${JSON.stringify(exp)}, recebido ${JSON.stringify(val)}`);},
+    toBeGreaterThan(n){if(!(val>n))throw new Error(`Esperado >  ${n}, recebido ${val}`);},
+    toHaveLength(n){if(val.length!==n)throw new Error(`Esperado length ${n}, recebido ${val.length}`);},
+    not:{
+      toThrow(){}, // placeholder
+      toBe(exp){if(val===exp)throw new Error(`Não esperado ${JSON.stringify(exp)}`);}
+    }
+  };
+}
+
+// ─── Funções extraídas do Dashboard (mesma lógica, sem React) ───────────────
+const localDateStr=()=>{const d=new Date();return new Date(d.getTime()-d.getTimezoneOffset()*60000).toISOString().slice(0,10);};
+
+/** Cópia idêntica da linha 1965 ANTES da correção — deve travar com horaInicio=null */
+function sortEventosQuebravel(eventos){
+  return[...eventos].sort((a,b)=>{const d=a.data.localeCompare(b.data);return d!==0?d:a.horaInicio.localeCompare(b.horaInicio);});
+}
+
+/** Cópia da linha 1965 APÓS a correção */
+function sortEventosCorrigido(eventos){
+  return[...eventos].sort((a,b)=>{const d=a.data.localeCompare(b.data);return d!==0?d:(a.horaInicio||"").localeCompare(b.horaInicio||"");});
+}
+
+/** Cópia do filtro ANTES da correção */
+function filtrarQuebravel(evs,filtro){
+  return evs.filter(e=>e.nome.toLowerCase().includes(filtro)||e.tipo.toLowerCase().includes(filtro)||e.local?.toLowerCase().includes(filtro));
+}
+
+/** Cópia do filtro APÓS a correção */
+function filtrarCorrigido(evs,filtro){
+  return evs.filter(e=>e.nome?.toLowerCase().includes(filtro)||e.tipo?.toLowerCase().includes(filtro)||e.local?.toLowerCase().includes(filtro));
+}
+
+// ─── Fixture de eventos ──────────────────────────────────────────────────────
+// Para exportar do banco sem dados reais:
+//   SELECT dados FROM sf_dados WHERE user_id='<tenant_id>' AND tipo='eventos'
+// Substitua <tenant_id> pelo UUID do tenant. O campo dados é o JSON array.
+// Nunca commite o resultado com dados reais.
+//
+// Os eventos abaixo reproduzem os padrões problemáticos sem dados de produção:
+const hoje = localDateStr();
+const amanha = new Date(Date.now()+86400000).toISOString().slice(0,10);
+const messFuturos = new Date(Date.now()+60*86400000).toISOString().slice(0,10);
+
+const FIXTURE_EVENTOS = [
+  // Evento hoje, sem horaInicio (dia inteiro — importado do Google Calendar)
+  {id:"ev-hoje-allday",   nome:"Festa Hoje Dia Inteiro", data:hoje,      horaInicio:null,  horaFim:null,  tipo:"Festa",   status:"Confirmado", local:"Saquarema", equipe:[]},
+  // Evento hoje com horário
+  {id:"ev-hoje-hora",     nome:"Animação Hoje",          data:hoje,      horaInicio:"14:00",horaFim:"18:00",tipo:"Animação",status:"Confirmado", local:"Araruama", equipe:[]},
+  // Mesmo dia que o anterior — força a comparação de horaInicio no sort
+  {id:"ev-hoje-hora2",    nome:"Show Hoje",               data:hoje,      horaInicio:"10:00",horaFim:"12:00",tipo:"Show",   status:"Confirmado", local:"Cabo Frio", equipe:[]},
+  // Evento amanhã, horaInicio null
+  {id:"ev-amanha-allday", nome:"Evento Amanhã Dia Inteiro",data:amanha,  horaInicio:null,  horaFim:null,  tipo:null,      status:"Em negociação",local:null,       equipe:[]},
+  // Evento amanhã com horário
+  {id:"ev-amanha-hora",   nome:"Aniversário Amanhã",     data:amanha,    horaInicio:"16:00",horaFim:"20:00",tipo:"Aniversário",status:"Confirmado",local:"Niterói", equipe:[]},
+  // Evento meses à frente
+  {id:"ev-futuro",        nome:"Réveillon",              data:messFuturos,horaInicio:"22:00",horaFim:"02:00",tipo:"Festa",  status:"Em negociação",local:"Rio de Janeiro",equipe:[]},
+  // Evento no passado (para testar separação passados/futuros)
+  {id:"ev-passado",       nome:"Evento Passado",         data:"2020-01-01",horaInicio:"10:00",horaFim:"12:00",tipo:"Outro", status:"Realizado",  local:"SP",        equipe:[]},
+];
+
+// ─── Suítes de teste ─────────────────────────────────────────────────────────
+
+describe("Sort de eventos — horaInicio nula", ()=>{
+  it("null.localeCompare() lança TypeError — raiz do bug (independente do sort)", ()=>{
+    // O sort chama a.horaInicio.localeCompare(...) quando datas são iguais.
+    // Se horaInicio for null, null.localeCompare() lança TypeError.
+    // Isso trava o render do React inteiro sem Error Boundary visível.
+    let thrown=false;
+    try{ null.localeCompare("qualquer"); }catch(e){ thrown=e instanceof TypeError; }
+    expect(thrown).toBe(true);
+  });
+
+  it("versão corrigida não lança mesmo com horaInicio null", ()=>{
+    let thrown=false;
+    try{ sortEventosCorrigido(FIXTURE_EVENTOS); }catch(e){ thrown=true; }
+    expect(thrown).toBe(false);
+  });
+
+  it("eventos com horaInicio null ficam antes dos que têm hora (mesma data)", ()=>{
+    const sorted=sortEventosCorrigido(FIXTURE_EVENTOS.filter(e=>e.data===hoje));
+    // "" (null→"") é menor que "10:00"
+    expect(sorted[0].id).toBe("ev-hoje-allday");
+    expect(sorted[1].id).toBe("ev-hoje-hora2"); // "10:00" < "14:00"
+    expect(sorted[2].id).toBe("ev-hoje-hora");
+  });
+
+  it("eventos passados ficam antes dos futuros na ordenação global", ()=>{
+    const sorted=sortEventosCorrigido(FIXTURE_EVENTOS);
+    expect(sorted[0].id).toBe("ev-passado");
+  });
+});
+
+describe("Filtro de exibição — evFuturos/evPassados", ()=>{
+  it("evFuturos inclui eventos de HOJE (>=) com todos os tipos de horaInicio", ()=>{
+    const sorted=sortEventosCorrigido(FIXTURE_EVENTOS);
+    const futuros=sorted.filter(e=>e.data>=hoje);
+    const ids=futuros.map(e=>e.id);
+    expect(ids.includes("ev-hoje-allday")).toBe(true);
+    expect(ids.includes("ev-hoje-hora")).toBe(true);
+    expect(ids.includes("ev-amanha-allday")).toBe(true);
+    expect(ids.includes("ev-futuro")).toBe(true);
+    expect(ids.includes("ev-passado")).toBe(false);
+  });
+
+  it("evento com status 'Em negociação' NÃO é excluído do filtro de exibição", ()=>{
+    const sorted=sortEventosCorrigido(FIXTURE_EVENTOS);
+    const futuros=sorted.filter(e=>e.data>=hoje);
+    const ids=futuros.map(e=>e.id);
+    // Tanto ev-amanha-allday quanto ev-futuro têm status "Em negociação"
+    expect(ids.includes("ev-amanha-allday")).toBe(true);
+    expect(ids.includes("ev-futuro")).toBe(true);
+  });
+});
+
+describe("Filtro de busca — tipo e nome nulos", ()=>{
+  it("null.toLowerCase() lança TypeError — raiz do bug no filtro", ()=>{
+    // O filtro chama e.tipo.toLowerCase() sem ?. — mesma causa: null.toLowerCase() = TypeError.
+    let thrown=false;
+    try{ null.toLowerCase(); }catch(e){ thrown=e instanceof TypeError; }
+    expect(thrown).toBe(true);
+  });
+
+  it("versão corrigida não lança com tipo ou nome null", ()=>{
+    let thrown=false;
+    try{ filtrarCorrigido(FIXTURE_EVENTOS,""); }catch(e){ thrown=true; }
+    expect(thrown).toBe(false);
+  });
+
+  it("busca por nome encontra evento", ()=>{
+    const res=filtrarCorrigido(FIXTURE_EVENTOS,"réveillon");
+    expect(res).toHaveLength(1);
+    expect(res[0].id).toBe("ev-futuro");
+  });
+
+  it("busca por local (campo opcional) não quebra quando local é null", ()=>{
+    const res=filtrarCorrigido(FIXTURE_EVENTOS,"niterói");
+    expect(res).toHaveLength(1);
+    expect(res[0].id).toBe("ev-amanha-hora");
+  });
+
+  it("evento com tipo null não aparece no filtro de tipo mas aparece no de nome", ()=>{
+    // ev-amanha-allday tem tipo:null — busca por nome ainda funciona
+    const res=filtrarCorrigido(FIXTURE_EVENTOS,"dia inteiro");
+    const ids=res.map(e=>e.id);
+    expect(ids.includes("ev-amanha-allday")).toBe(true);
+  });
+});
+
+describe("localDateStr — timezone local, não UTC", ()=>{
+  it("retorna string no formato YYYY-MM-DD", ()=>{
+    const s=localDateStr();
+    expect(/^\d{4}-\d{2}-\d{2}$/.test(s)).toBe(true);
+  });
+
+  it("data de hoje está na lista de futuros", ()=>{
+    const hoje=localDateStr();
+    const sorted=sortEventosCorrigido(FIXTURE_EVENTOS);
+    const futuros=sorted.filter(e=>e.data>=hoje);
+    const hojeEvs=futuros.filter(e=>e.data===hoje);
+    expect(hojeEvs.length).toBeGreaterThan(0);
+  });
+});
+
+// ─── Suítes novas: evSvc helpers ─────────────────────────────────────────────
+
+// Copias das funções de mapeamento do evSvc para teste unitário
+// (sem Supabase — testamos só a transformação de dados)
+const _mapTeamRowTest = r => ({
+  _teamId: r.id,
+  freelancerId: isNaN(+r.freelancer_id) ? r.freelancer_id : +r.freelancer_id,
+  funcao: r.funcao || "",
+  cache: +(r.cache_base) || 0,
+  obs: r.obs || "",
+  pago: r.pago || false,
+  turnos: r.turnos || 1,
+  bonusMultTurnos: r.bonus_mult_turnos || false,
+  bonus: r.bonus_nivel ? {nivel: r.bonus_nivel, ativo: r.bonus_ativo || false} : null,
+});
+const _mapRowTest = r => ({
+  id: r.id,
+  legacy_id: r.legacy_id || null,
+  nome: r.nome || "",
+  tipo: r.tipo || "Outro",
+  status: r.status || "Em negociação",
+  data: r.data,
+  horaInicio: r.hora_inicio || null,
+  horaFim: r.hora_fim || null,
+  local: r.local || "",
+  obs: r.obs || "",
+  google_event_id: r.google_event_id || null,
+  google_calendar_synced: r.google_calendar_synced || false,
+  equipe: (r.event_team || []).map(_mapTeamRowTest),
+});
+const _unmapTest = d => {
+  const db = {};
+  if (d.nome !== undefined)       db.nome = d.nome;
+  if (d.tipo !== undefined)       db.tipo = d.tipo;
+  if (d.status !== undefined)     db.status = d.status;
+  if (d.data !== undefined)       db.data = d.data;
+  if (d.horaInicio !== undefined) db.hora_inicio = d.horaInicio || null;
+  if (d.horaFim !== undefined)    db.hora_fim = d.horaFim || null;
+  if (d.local !== undefined)      db.local = d.local;
+  if (d.obs !== undefined)        db.obs = d.obs;
+  return db;
+};
+const getConfAdminTest = (cmap, fid, ev) =>
+  cmap?.[fid]?.[ev.id] ?? cmap?.[fid]?.[String(ev.legacy_id)];
+const getConfFlTest = (cfms, ev) =>
+  cfms?.[ev.id] ?? cfms?.[String(ev.legacy_id)];
+
+describe("evSvc._mapRow — mapeamento DB→JS", ()=>{
+  it("mapeia campos obrigatórios corretamente", ()=>{
+    const row={id:"uuid-1",legacy_id:"123",nome:"Festa",tipo:"Animação",status:"Confirmado",data:"2026-01-15",hora_inicio:"14:00",hora_fim:"18:00",local:"Saquarema",obs:"Test",google_event_id:null,google_calendar_synced:false,event_team:[]};
+    const r=_mapRowTest(row);
+    expect(r.id).toBe("uuid-1");
+    expect(r.legacy_id).toBe("123");
+    expect(r.nome).toBe("Festa");
+    expect(r.data).toBe("2026-01-15");
+    expect(r.horaInicio).toBe("14:00");
+    expect(r.horaFim).toBe("18:00");
+    expect(r.equipe).toHaveLength(0);
+  });
+  it("mapeia membro da equipe com bônus", ()=>{
+    const row={id:"uuid-2",nome:"Show",data:"2026-02-01",event_team:[{id:"t1",freelancer_id:"42",funcao:"DJ",cache_base:300,obs:"",pago:false,turnos:2,bonus_mult_turnos:true,bonus_nivel:"senior",bonus_ativo:true}]};
+    const r=_mapRowTest(row);
+    expect(r.equipe).toHaveLength(1);
+    const m=r.equipe[0];
+    expect(m.freelancerId).toBe(42);
+    expect(m.cache).toBe(300);
+    expect(m.turnos).toBe(2);
+    expect(m.bonusMultTurnos).toBe(true);
+    expect(m.bonus).toEqual({nivel:"senior",ativo:true});
+  });
+  it("freelancer_id não-numérico mantém como string", ()=>{
+    const row={id:"uuid-3",nome:"Ev",data:"2026-03-01",event_team:[{id:"t2",freelancer_id:"uuid-fr",funcao:"",cache_base:0}]};
+    const r=_mapRowTest(row);
+    expect(r.equipe[0].freelancerId).toBe("uuid-fr");
+  });
+  it("campos ausentes recebem defaults", ()=>{
+    const r=_mapRowTest({id:"uuid-4",nome:"X",data:"2026-04-01"});
+    expect(r.tipo).toBe("Outro");
+    expect(r.status).toBe("Em negociação");
+    expect(r.local).toBe("");
+    expect(r.equipe).toHaveLength(0);
+  });
+});
+
+describe("evSvc._unmap — mapeamento JS→DB (patch parcial)", ()=>{
+  it("inclui somente campos presentes no patch", ()=>{
+    const db=_unmapTest({nome:"Novo Nome",data:"2026-05-01"});
+    expect(db.nome).toBe("Novo Nome");
+    expect(db.data).toBe("2026-05-01");
+    expect("tipo" in db).toBe(false);
+    expect("hora_inicio" in db).toBe(false);
+  });
+  it("mapeia horaInicio→hora_inicio e horaFim→hora_fim", ()=>{
+    const db=_unmapTest({horaInicio:"10:00",horaFim:"12:00"});
+    expect(db.hora_inicio).toBe("10:00");
+    expect(db.hora_fim).toBe("12:00");
+    expect("horaInicio" in db).toBe(false);
+  });
+  it("horaInicio null → hora_inicio null (não undefined)", ()=>{
+    const db=_unmapTest({horaInicio:null});
+    expect(db.hora_inicio).toBe(null);
+  });
+  it("patch vazio retorna objeto vazio", ()=>{
+    const db=_unmapTest({});
+    expect(Object.keys(db).length).toBe(0);
+  });
+});
+
+describe("getConfAdmin / getConfFl — cross-ref por id e legacy_id", ()=>{
+  const ev={id:"uuid-ev",legacy_id:"999"};
+  const conf={confirmado:true,em:"2026-01-01"};
+
+  it("getConfAdmin encontra por uuid (ev.id novo)", ()=>{
+    const cmap={"42":{"uuid-ev":conf}};
+    expect(getConfAdminTest(cmap,"42",ev)).toEqual(conf);
+  });
+  it("getConfAdmin encontra por legacy_id (mapa antigo)", ()=>{
+    const cmap={"42":{"999":conf}};
+    expect(getConfAdminTest(cmap,"42",ev)).toEqual(conf);
+  });
+  it("getConfAdmin retorna undefined se não encontrado", ()=>{
+    const cmap={"42":{"outro":conf}};
+    expect(getConfAdminTest(cmap,"42",ev)).toBe(undefined);
+  });
+  it("getConfAdmin null-safe com cmap vazio", ()=>{
+    expect(getConfAdminTest({},"42",ev)).toBe(undefined);
+    expect(getConfAdminTest(null,"42",ev)).toBe(undefined);
+  });
+  it("getConfFl encontra por ev.id (novo UUID)", ()=>{
+    const cfms={"uuid-ev":conf};
+    expect(getConfFlTest(cfms,ev)).toEqual(conf);
+  });
+  it("getConfFl encontra por legacy_id (mapa antigo)", ()=>{
+    const cfms={"999":conf};
+    expect(getConfFlTest(cfms,ev)).toEqual(conf);
+  });
+  it("getConfFl retorna undefined se ev não está no mapa", ()=>{
+    const cfms={"outro":conf};
+    expect(getConfFlTest(cfms,ev)).toBe(undefined);
+  });
+});
+
+describe("calcCache invariante — nova estrutura de dados", ()=>{
+  // Replica calcCache sem depender do módulo React
+  const BONUS_TEST=[
+    {id:"junior",valor:5},{id:"senior",valor:10},{id:"master",valor:20},
+  ];
+  const calcCacheTest=(m,ev)=>{
+    const horaFim=ev.horaFim||"";const horaInicio=ev.horaInicio||"";
+    let dur=0;if(horaInicio&&horaFim){const[h1,m1]=horaInicio.split(":").map(Number);const[h2,m2]=horaFim.split(":").map(Number);dur=(h2*60+m2)-(h1*60+m1);if(dur<0)dur+=1440;}
+    const turnos=m.turnos||1;const base=(m.cache||0)*turnos;
+    let bonus=0;
+    if(m.bonus?.ativo){const n=BONUS_TEST.find(x=>x.id===m.bonus.nivel);if(n)bonus=m.bonusMultTurnos&&turnos>1?n.valor*turnos:n.valor;}
+    return base+bonus;
+  };
+  it("calcula cache base sem bônus", ()=>{
+    const m={cache:200,turnos:1,bonus:null};
+    const ev={horaInicio:"14:00",horaFim:"18:00"};
+    expect(calcCacheTest(m,ev)).toBe(200);
+  });
+  it("calcula cache com turnos multiplicado", ()=>{
+    const m={cache:200,turnos:3,bonus:null};
+    const ev={horaInicio:"10:00",horaFim:"12:00"};
+    expect(calcCacheTest(m,ev)).toBe(600);
+  });
+  it("adiciona bônus senior sem mult de turnos", ()=>{
+    const m={cache:300,turnos:1,bonus:{nivel:"senior",ativo:true},bonusMultTurnos:false};
+    const ev={horaInicio:"10:00",horaFim:"14:00"};
+    expect(calcCacheTest(m,ev)).toBe(310);
+  });
+  it("adiciona bônus senior COM mult de turnos", ()=>{
+    const m={cache:200,turnos:2,bonus:{nivel:"senior",ativo:true},bonusMultTurnos:true};
+    const ev={horaInicio:"10:00",horaFim:"14:00"};
+    expect(calcCacheTest(m,ev)).toBe(400+20); // 200*2 + 10*2
+  });
+  it("bônus inativo não é somado", ()=>{
+    const m={cache:200,turnos:1,bonus:{nivel:"master",ativo:false}};
+    const ev={horaInicio:"10:00",horaFim:"14:00"};
+    expect(calcCacheTest(m,ev)).toBe(200);
+  });
+  it("funciona com horaInicio/horaFim null (evento dia inteiro)", ()=>{
+    const m={cache:150,turnos:1,bonus:null};
+    const ev={horaInicio:null,horaFim:null};
+    expect(calcCacheTest(m,ev)).toBe(150);
+  });
+});
+
+describe("Como exportar fixture do banco sem dados reais", ()=>{
+  it("instrução de exportação está documentada no fixture acima", ()=>{
+    // Rode no Supabase SQL Editor:
+    // SELECT dados FROM sf_dados
+    // WHERE user_id = '<tenant_id>' AND tipo = 'eventos'
+    // LIMIT 1;
+    //
+    // Copie o valor do campo "dados" para um arquivo .json local.
+    // Substitua nomes, locais e IDs de freelancer por dados fictícios antes de commitar.
+    // Nunca commite o JSON com dados reais.
+    expect(true).toBe(true);
+  });
+});
+
+// ─── Helpers de CRUD de freelancer (extraídos do Dashboard) ──────────────────
+// Simulam a lógica de AbaEquipeAdmin sem React ou Supabase.
+
+function criarFreelancer(lista, form) {
+  if (!form.nome) return lista;
+  return [...lista, {...form, id: form.id || Date.now()}];
+}
+
+function editarFreelancer(lista, form) {
+  if (!form.nome || !form.id) return lista;
+  return lista.map(f => f.id === form.id ? {...form} : f);
+}
+
+function excluirFreelancer(lista, id) {
+  return lista.filter(f => f.id !== id);
+}
+
+// Mesma lógica de filtro do componente (busca + nível)
+function filtrarFreelancers(lista, busca, filtroBonus) {
+  const base = lista
+    .filter(f => f.nome?.toLowerCase().includes(busca.toLowerCase()))
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  if (filtroBonus === "todos")  return base;
+  if (filtroBonus === "sem")    return base.filter(f => !f.nivelBonus);
+  if (filtroBonus === "gestao") return base.filter(f => f.nivel_acesso === "gestao");
+  return base.filter(f => f.nivelBonus === filtroBonus);
+}
+
+// evCount — mesma lógica, com coerção numérica idêntica à do _mapTeamRow
+function evCountTest(eventos, freelancerId) {
+  return eventos.filter(ev =>
+    ev.equipe?.find(m => m.freelancerId === freelancerId)
+  ).length;
+}
+
+describe("Freelancer CRUD — criar", () => {
+  it("cria freelancer com nome e id numérico", () => {
+    const lista = [];
+    const form = {nome: "Ana Souza", telefone: "21999990000", funcoes: ["Animadora"], pix: "", obs: ""};
+    const result = criarFreelancer(lista, form);
+    expect(result).toHaveLength(1);
+    expect(result[0].nome).toBe("Ana Souza");
+    expect(typeof result[0].id).toBe("number");
+  });
+
+  it("não cria freelancer sem nome", () => {
+    const lista = [];
+    const result = criarFreelancer(lista, {nome: "", telefone: "21999990000"});
+    expect(result).toHaveLength(0);
+  });
+
+  it("acumula múltiplos freelancers preservando ordem de inserção", () => {
+    let lista = [];
+    lista = criarFreelancer(lista, {nome: "Carlos Lima"});
+    lista = criarFreelancer(lista, {nome: "Beatriz Paz"});
+    lista = criarFreelancer(lista, {nome: "Amanda Cruz"});
+    expect(lista).toHaveLength(3);
+    expect(lista[0].nome).toBe("Carlos Lima");
+    expect(lista[2].nome).toBe("Amanda Cruz");
+  });
+
+  it("freelancer com userId preserva o campo", () => {
+    const lista = [];
+    const form = {nome: "Diego Rocha", userId: "uuid-123", nivel_acesso: "gestao"};
+    const result = criarFreelancer(lista, form);
+    expect(result[0].userId).toBe("uuid-123");
+    expect(result[0].nivel_acesso).toBe("gestao");
+  });
+});
+
+describe("Freelancer CRUD — editar", () => {
+  const ID = 1726000000000;
+  const listaBase = [{id: ID, nome: "Ana Souza", telefone: "21999990000", funcoes: ["Animadora"], nivelBonus: null}];
+
+  it("edita freelancer existente pelo id", () => {
+    const form = {id: ID, nome: "Ana Souza Silva", telefone: "21999990001", funcoes: ["Animadora", "MC"]};
+    const result = editarFreelancer(listaBase, form);
+    expect(result).toHaveLength(1);
+    expect(result[0].nome).toBe("Ana Souza Silva");
+    expect(result[0].telefone).toBe("21999990001");
+    expect(result[0].funcoes).toHaveLength(2);
+  });
+
+  it("não altera outros freelancers ao editar um", () => {
+    const ID2 = 1726000000001;
+    const lista = [
+      {id: ID, nome: "Ana Souza"},
+      {id: ID2, nome: "Bruno Neves"},
+    ];
+    const result = editarFreelancer(lista, {id: ID, nome: "Ana Souza Silva"});
+    expect(result).toHaveLength(2);
+    expect(result[1].nome).toBe("Bruno Neves");
+  });
+
+  it("não edita se id ausente no form", () => {
+    const form = {nome: "Outro Nome"};
+    const result = editarFreelancer(listaBase, form);
+    expect(result[0].nome).toBe("Ana Souza");
+  });
+
+  it("não edita se nome vazio", () => {
+    const form = {id: ID, nome: ""};
+    const result = editarFreelancer(listaBase, form);
+    expect(result[0].nome).toBe("Ana Souza");
+  });
+
+  it("editar preserva o id original (não gera novo)", () => {
+    const form = {id: ID, nome: "Nome Novo"};
+    const result = editarFreelancer(listaBase, form);
+    expect(result[0].id).toBe(ID);
+  });
+});
+
+describe("Freelancer CRUD — excluir", () => {
+  const ID_A = 100;
+  const ID_B = 200;
+  const lista = [
+    {id: ID_A, nome: "Ana"},
+    {id: ID_B, nome: "Bruno"},
+  ];
+
+  it("remove freelancer pelo id", () => {
+    const result = excluirFreelancer(lista, ID_A);
+    expect(result).toHaveLength(1);
+    expect(result[0].nome).toBe("Bruno");
+  });
+
+  it("não remove nada se id não existe", () => {
+    const result = excluirFreelancer(lista, 999);
+    expect(result).toHaveLength(2);
+  });
+
+  it("lista fica vazia após remover o único freelancer", () => {
+    const result = excluirFreelancer([{id: 1, nome: "Ana"}], 1);
+    expect(result).toHaveLength(0);
+  });
+
+  it("não muta o array original", () => {
+    const original = [{id: 1, nome: "Ana"}, {id: 2, nome: "Bruno"}];
+    const result = excluirFreelancer(original, 1);
+    expect(original).toHaveLength(2); // original intocado
+    expect(result).toHaveLength(1);
+  });
+});
+
+describe("Freelancer — filtros de busca e bônus", () => {
+  const lista = [
+    {id: 1, nome: "Amanda Cruz",  nivelBonus: null,     nivel_acesso: "freelancer"},
+    {id: 2, nome: "Beatriz Paz",  nivelBonus: "junior", nivel_acesso: "freelancer"},
+    {id: 3, nome: "Carlos Lima",  nivelBonus: "senior", nivel_acesso: "gestao"},
+    {id: 4, nome: "Diego Rocha",  nivelBonus: "master", nivel_acesso: "freelancer"},
+  ];
+
+  it("filtroBonus=todos retorna todos", () => {
+    expect(filtrarFreelancers(lista, "", "todos")).toHaveLength(4);
+  });
+
+  it("filtroBonus=sem retorna apenas sem bônus", () => {
+    const r = filtrarFreelancers(lista, "", "sem");
+    expect(r).toHaveLength(1);
+    expect(r[0].nome).toBe("Amanda Cruz");
+  });
+
+  it("filtroBonus=gestao retorna apenas gestão", () => {
+    const r = filtrarFreelancers(lista, "", "gestao");
+    expect(r).toHaveLength(1);
+    expect(r[0].nome).toBe("Carlos Lima");
+  });
+
+  it("filtroBonus=senior retorna freelancers com esse nível", () => {
+    const r = filtrarFreelancers(lista, "", "senior");
+    expect(r).toHaveLength(1);
+    expect(r[0].nome).toBe("Carlos Lima");
+  });
+
+  it("busca por nome funciona case-insensitive", () => {
+    const r = filtrarFreelancers(lista, "beat", "todos");
+    expect(r).toHaveLength(1);
+    expect(r[0].nome).toBe("Beatriz Paz");
+  });
+
+  it("busca vazia com filtro senior retorna apenas senior", () => {
+    const r = filtrarFreelancers(lista, "", "senior");
+    expect(r[0].nome).toBe("Carlos Lima");
+  });
+
+  it("resultado está em ordem alfabética", () => {
+    const r = filtrarFreelancers(lista, "", "todos");
+    const nomes = r.map(f => f.nome);
+    expect(nomes).toEqual(["Amanda Cruz", "Beatriz Paz", "Carlos Lima", "Diego Rocha"]);
+  });
+
+  it("nome null não quebra o filtro", () => {
+    const listaComNull = [...lista, {id: 5, nome: null, nivelBonus: null}];
+    let threw = false;
+    try { filtrarFreelancers(listaComNull, "", "todos"); } catch { threw = true; }
+    expect(threw).toBe(false);
+  });
+});
+
+describe("evCount — compatibilidade numérica de freelancer_id", () => {
+  // Garante que o id numérico do freelancer (sf_dados) bate com
+  // o freelancerId coercido pelo _mapTeamRow (event_team.freelancer_id TEXT → Number)
+  const FL_ID_NUM = 1726000000000;
+  const FL_ID_STR = "1726000000000";
+  const FL_ID_UUID = "uuid-freelancer-1";
+
+  const makeEvento = (freelancerId) => ({
+    id: "ev-1",
+    equipe: [{freelancerId}]
+  });
+
+  it("id numérico bate com freelancerId numérico (coercido de string numérica)", () => {
+    const eventos = [makeEvento(FL_ID_NUM)];
+    expect(evCountTest(eventos, FL_ID_NUM)).toBe(1);
+  });
+
+  it("id numérico NÃO bate com string numérica (sem coerção — detecta regressão)", () => {
+    // Sem coerção no _mapTeamRow, freelancerId seria string "1726000000000"
+    // e f.id seria number 1726000000000 — === falharia
+    const eventos = [makeEvento(FL_ID_STR)];
+    expect(evCountTest(eventos, FL_ID_NUM)).toBe(false === true ? 1 : 0); // deve ser 0 sem coerção
+  });
+
+  it("com coerção aplicada, string numérica → number bate com f.id number", () => {
+    // Simula _mapTeamRow: converte "1726000000000" → 1726000000000
+    const coerced = isNaN(+FL_ID_STR) ? FL_ID_STR : +FL_ID_STR;
+    const eventos = [makeEvento(coerced)];
+    expect(evCountTest(eventos, FL_ID_NUM)).toBe(1);
+  });
+
+  it("id UUID (não-numérico) permanece string e NÃO bate com id numérico", () => {
+    const eventos = [makeEvento(FL_ID_UUID)];
+    expect(evCountTest(eventos, FL_ID_NUM)).toBe(0);
+  });
+
+  it("freelancer sem eventos retorna 0", () => {
+    const eventos = [makeEvento(FL_ID_NUM)];
+    expect(evCountTest(eventos, 999)).toBe(0);
+  });
+
+  it("múltiplos eventos, só um com o freelancer", () => {
+    const eventos = [makeEvento(FL_ID_NUM), makeEvento(999), makeEvento(FL_ID_NUM)];
+    expect(evCountTest(eventos, FL_ID_NUM)).toBe(2);
+  });
+});
+
+// ─── _unmapMember — JS→DB (novo) ─────────────────────────────────────────────
+const _unmapMemberTest = m => ({
+  freelancer_id: String(m.freelancerId),
+  funcao: m.funcao || "",
+  cache_base: m.cache || 0,
+  obs: m.obs || "",
+  pago: m.pago || false,
+  turnos: m.turnos || 1,
+  bonus_mult_turnos: m.bonusMultTurnos || false,
+  bonus_nivel: m.bonus?.nivel || null,
+  bonus_ativo: m.bonus?.ativo || false,
+});
+
+describe("evSvc._unmapMember — JS→DB", () => {
+  it("converte freelancerId numérico para string", () => {
+    const row = _unmapMemberTest({freelancerId: 1726000000000, funcao: "Animadora", cache: 200});
+    expect(row.freelancer_id).toBe("1726000000000");
+    expect(typeof row.freelancer_id).toBe("string");
+  });
+
+  it("converte freelancerId que já veio como number de buildMembro (+mf.freelancerId)", () => {
+    const mf = {freelancerId: "1726000000000"};
+    const freelancerId = +mf.freelancerId; // simula buildMembro
+    const row = _unmapMemberTest({freelancerId, funcao: "MC", cache: 150});
+    expect(row.freelancer_id).toBe("1726000000000");
+  });
+
+  it("campos obrigatórios recebem defaults", () => {
+    const row = _unmapMemberTest({freelancerId: 42, funcao: ""});
+    expect(row.funcao).toBe("");
+    expect(row.cache_base).toBe(0);
+    expect(row.pago).toBe(false);
+    expect(row.turnos).toBe(1);
+    expect(row.bonus_mult_turnos).toBe(false);
+    expect(row.bonus_nivel).toBe(null);
+    expect(row.bonus_ativo).toBe(false);
+  });
+
+  it("mapeia bônus corretamente quando ativo", () => {
+    const row = _unmapMemberTest({freelancerId: 42, funcao: "DJ", cache: 300, bonus: {nivel:"senior", ativo:true}, bonusMultTurnos: true, turnos: 2});
+    expect(row.bonus_nivel).toBe("senior");
+    expect(row.bonus_ativo).toBe(true);
+    expect(row.bonus_mult_turnos).toBe(true);
+    expect(row.turnos).toBe(2);
+  });
+
+  it("bônus null produz bonus_nivel=null e bonus_ativo=false", () => {
+    const row = _unmapMemberTest({freelancerId: 42, funcao: "MC", cache: 100, bonus: null});
+    expect(row.bonus_nivel).toBe(null);
+    expect(row.bonus_ativo).toBe(false);
+  });
+});
+
+// ─── Ciclo completo insert→mapTeamRow: invariante de tipo ───────────────────
+describe("Ciclo insert→_mapTeamRow — invariante de tipo freelancerId", () => {
+  // Simula: buildMembro → _unmapMember → DB (TEXT) → _mapTeamRow → render
+  const FL_ID = 1726000000000;
+
+  it("roundtrip numérico: +mf.freelancerId → String → DB TEXT → +row.freelancer_id === f.id", () => {
+    const mfFreelancerId = String(FL_ID);           // como vem do setMf(fm=>({...fm,freelancerId:String(f.id)}))
+    const built = +mfFreelancerId;                  // buildMembro: freelancerId:+mf.freelancerId
+    const inDb = String(built);                     // _unmapMember: freelancer_id:String(m.freelancerId)
+    const fromDb = isNaN(+inDb) ? inDb : +inDb;    // _mapTeamRow: coerção
+    expect(fromDb).toBe(FL_ID);                     // bate com f.id no JSON
+    expect(typeof fromDb).toBe("number");
+  });
+
+  it("fl(m.freelancerId) encontra o freelancer após roundtrip", () => {
+    const freelancers = [{id: FL_ID, nome: "Ana Souza"}];
+    const mfFreelancerId = String(FL_ID);
+    const built = +mfFreelancerId;
+    const inDb = String(built);
+    const fromDb = isNaN(+inDb) ? inDb : +inDb;
+    const found = freelancers.find(f => f.id === fromDb);
+    expect(found).not.toBe(undefined);
+    expect(found.nome).toBe("Ana Souza");
+  });
+
+  it("todosForaEquipe remove o freelancer após adição bem-sucedida", () => {
+    const freelancers = [{id: FL_ID, nome: "Ana"}];
+    const equipeVazia = [];
+    const equipeComMembro = [{freelancerId: FL_ID}];  // após _mapTeamRow
+    const fora0 = freelancers.filter(f => !equipeVazia.find(m => m.freelancerId === f.id));
+    const fora1 = freelancers.filter(f => !equipeComMembro.find(m => m.freelancerId === f.id));
+    expect(fora0).toHaveLength(1);  // antes: aparece na lista
+    expect(fora1).toHaveLength(0);  // depois: sumiu da lista
+  });
+
+  it("freelancer UUID (não-numérico) sobrevive ao roundtrip como string", () => {
+    const FL_UUID = "uuid-freelancer-abc123";
+    const inDb = String(FL_UUID);
+    const fromDb = isNaN(+inDb) ? inDb : +inDb;  // NaN → mantém string
+    expect(fromDb).toBe(FL_UUID);
+    expect(typeof fromDb).toBe("string");
+  });
+});
+
+// ─── Comportamento de addMembro — erro silencioso ────────────────────────────
+describe("addMembro — tratamento de erro", () => {
+  // Simula o fluxo de addMembro sem React/Supabase
+  function simulaAddMembro(upsertFn, onSuccess, onError) {
+    return async () => {
+      try {
+        const atualizado = await upsertFn();
+        onSuccess(atualizado);
+      } catch (err) {
+        onError(err.message);
+      }
+    };
+  }
+
+  it("chama onSuccess quando upsertMember resolve", async () => {
+    const eventoRetornado = {id: "ev-1", equipe: [{freelancerId: 42}]};
+    let successCalled = false;
+    let errorMsg = null;
+    const fn = simulaAddMembro(
+      () => Promise.resolve(eventoRetornado),
+      () => { successCalled = true; },
+      (msg) => { errorMsg = msg; }
+    );
+    await fn();
+    expect(successCalled).toBe(true);
+    expect(errorMsg).toBe(null);
+  });
+
+  it("chama onError com mensagem quando upsertMember rejeita", async () => {
+    let successCalled = false;
+    let errorMsg = null;
+    const fn = simulaAddMembro(
+      () => Promise.reject(new Error("new row violates row-level security policy")),
+      () => { successCalled = true; },
+      (msg) => { errorMsg = msg; }
+    );
+    await fn();
+    expect(successCalled).toBe(false);
+    expect(errorMsg).toBe("new row violates row-level security policy");
+  });
+
+  it("onError captura erro de constraint de unicidade", async () => {
+    let errorMsg = null;
+    const fn = simulaAddMembro(
+      () => Promise.reject(new Error('duplicate key value violates unique constraint "event_team_uniq_member"')),
+      () => {},
+      (msg) => { errorMsg = msg; }
+    );
+    await fn();
+    expect(errorMsg.includes("duplicate key")).toBe(true);
+  });
+});
+
+// ─── remMembro — revert em caso de erro ──────────────────────────────────────
+describe("remMembro — comportamento optimistic + revert", () => {
+  function simulaRemMembro(removeFn) {
+    let eventoLocal = {id: "ev-1", equipe: [{freelancerId: 42, nome: "Ana"}]};
+    const setEventos = (fn) => { eventoLocal = fn([eventoLocal])[0]; };
+
+    // Optimistic: remove do estado local imediatamente
+    setEventos(evs => evs.map(e => e.id === "ev-1" ? {...e, equipe: e.equipe.filter(m => m.freelancerId !== 42)} : e));
+    return removeFn().then(atualizado => {
+      setEventos(evs => evs.map(e => e.id === "ev-1" ? atualizado : e));
+      return {status: "ok", equipe: eventoLocal.equipe};
+    }).catch(err => {
+      // Revert: restaura do banco
+      return {status: "error", msg: err.message, equipeLocal: eventoLocal.equipe};
+    });
+  }
+
+  it("após remoção bem-sucedida, equipe fica vazia (via refetch)", async () => {
+    const eventoAtualizado = {id: "ev-1", equipe: []};
+    const {status, equipe} = await simulaRemMembro(() => Promise.resolve(eventoAtualizado));
+    expect(status).toBe("ok");
+    expect(equipe).toHaveLength(0);
+  });
+
+  it("em caso de erro, reporta a mensagem de erro", async () => {
+    const {status, msg} = await simulaRemMembro(() => Promise.reject(new Error("new row violates row-level security")));
+    expect(status).toBe("error");
+    expect(msg.includes("row-level security")).toBe(true);
+  });
+});
+
+// ─── Renderização dos resultados ─────────────────────────────────────────────
+const div=document.getElementById("results");
+let total=0,falhas=0;
+for(const suite of suites){
+  const sd=document.createElement("div");sd.className="suite";
+  const sn=document.createElement("div");sn.className="suite-name";sn.textContent=suite.name;sd.appendChild(sn);
+  for(const t of suite.tests){
+    total++;
+    const td=document.createElement("div");td.className="test";
+    if(t.err){
+      falhas++;
+      td.className+=" fail";
+      td.innerHTML=`❌ ${t.desc}<div class="msg">${t.err.message}</div>`;
+    } else {
+      td.innerHTML=`<span class="pass">✅ ${t.desc}</span>`;
+    }
+    sd.appendChild(td);
+  }
+  div.appendChild(sd);
+}
+const sum=document.getElementById("summary");
+sum.className=falhas===0?"ok":"bad";
+sum.textContent=falhas===0
+  ?`✅ ${total}/${total} testes passaram`
+  :`❌ ${falhas} falha(s) em ${total} testes`;
+</script>
+</body>
+</html>

@@ -24,9 +24,6 @@ const TABLE = 'wa_sessions';
 
 // ─── Helpers de leitura/escrita ────────────────────────────────────────────────
 
-/**
- * Lê um registro do Supabase e desserializa (restaurando Buffers via BufferJSON).
- */
 async function readData(adminId, key) {
   const { data, error } = await supabase
     .from(TABLE)
@@ -37,9 +34,6 @@ async function readData(adminId, key) {
 
   if (error || !data) return null;
 
-  // data.session_data já é um objeto JS (Supabase faz o parse do JSONB).
-  // Usamos JSON.stringify + JSON.parse com o reviver do Baileys para
-  // restaurar quaisquer campos { type: "Buffer", data: [...] } como Buffer real.
   try {
     return JSON.parse(JSON.stringify(data.session_data), BufferJSON.reviver);
   } catch {
@@ -47,12 +41,7 @@ async function readData(adminId, key) {
   }
 }
 
-/**
- * Persiste um registro no Supabase (upsert), serializando Buffers via BufferJSON.
- */
 async function writeData(adminId, key, value) {
-  // JSON.stringify com o replacer converte Buffers para { type: "Buffer", data: [...] },
-  // e o JSON.parse de volta produz um objeto puro pronto para o JSONB.
   const serialized = JSON.parse(JSON.stringify(value, BufferJSON.replacer));
 
   const { error } = await supabase
@@ -70,15 +59,16 @@ async function writeData(adminId, key, value) {
   if (error) throw new Error(`[SupabaseAuth] writeData(${key}): ${error.message}`);
 }
 
-/**
- * Remove um registro do Supabase.
- */
 async function removeData(adminId, key) {
-  await supabase
+  const { error } = await supabase
     .from(TABLE)
     .delete()
     .eq('admin_id', adminId)
     .eq('session_key', key);
+
+  if (error) {
+    console.warn(`[SupabaseAuth][${adminId}] removeData(${key}): ${error.message}`);
+  }
 }
 
 // ─── API pública ───────────────────────────────────────────────────────────────
@@ -86,66 +76,108 @@ async function removeData(adminId, key) {
 /**
  * Equivalente ao useMultiFileAuthState do Baileys, porém persiste no Supabase.
  *
+ * Diferenças em relação a uma implementação ingênua:
+ * - Cache em memória por sessão: keys.set atualiza o cache antes de escrever
+ *   no DB, garantindo que keys.get imediato não leia valor stale.
+ * - null → undefined: quando uma chave não existe, result[id] não é definido
+ *   (fica undefined), exatamente como useMultiFileAuthState. Retornar null
+ *   quebra checks internos do Baileys para tipos específicos.
+ * - app-state-sync-key não é cacheado (objetos proto têm formato ambíguo entre
+ *   o que keys.set recebe e o que keys.get deve retornar).
+ * - Erros em keys.set são logados e propagados — falha silenciosa faz o
+ *   ratchet Signal avançar em memória sem persistir, corrompendo sessões futuras.
+ *
  * @param {string} adminId - UUID do admin (usado como partição na tabela)
  * @returns {{ state: AuthenticationState, saveCreds: () => Promise<void> }}
  */
 async function useSupabaseAuthState(adminId) {
-  // Carrega ou inicializa as credenciais
   const creds = (await readData(adminId, 'creds')) || initAuthCreds();
+
+  // Cache em memória por instância de sessão.
+  // Armazena o valor bruto (formato DB), não o objeto proto.
+  // app-state-sync-key é excluído por ter formato ambíguo entre set e get.
+  const keyCache = new Map();
 
   const state = {
     creds,
 
     keys: {
-      /**
-       * Busca chaves de sinal (pre-keys, sessions, etc.) pelo tipo e lista de IDs.
-       */
       get: async (type, ids) => {
         const result = {};
+        const useCache = type !== 'app-state-sync-key';
+
         await Promise.all(
           ids.map(async id => {
-            let value = await readData(adminId, `${type}-${id}`);
-            if (type === 'app-state-sync-key' && value) {
-              value = proto.Message.AppStateSyncKeyData.fromObject(value);
+            const storeKey = `${type}-${id}`;
+            let value;
+
+            if (useCache && keyCache.has(storeKey)) {
+              value = keyCache.get(storeKey);
+            } else {
+              value = await readData(adminId, storeKey);
+              if (useCache && value !== null) {
+                keyCache.set(storeKey, value);
+              }
             }
-            result[id] = value;
+
+            // Baileys espera undefined para chaves ausentes, não null.
+            // Definir result[id] = null quebra checks internos (ex: session lookup).
+            if (value == null) return;
+
+            result[id] = type === 'app-state-sync-key'
+              ? proto.Message.AppStateSyncKeyData.fromObject(value)
+              : value;
           })
         );
         return result;
       },
 
-      /**
-       * Persiste (ou remove) chaves de sinal.
-       * data = { [type]: { [id]: value | null } }
-       */
       set: async data => {
         const tasks = [];
+        const useCache = true;
+
         for (const type of Object.keys(data)) {
           for (const id of Object.keys(data[type])) {
             const value = data[type][id];
-            const key   = `${type}-${id}`;
+            const storeKey = `${type}-${id}`;
+            const cacheType = type !== 'app-state-sync-key';
+
             if (value) {
-              tasks.push(writeData(adminId, key, value));
+              if (useCache && cacheType) keyCache.set(storeKey, value);
+              tasks.push(writeData(adminId, storeKey, value));
             } else {
-              tasks.push(removeData(adminId, key));
+              if (useCache) keyCache.delete(storeKey);
+              tasks.push(removeData(adminId, storeKey));
             }
           }
         }
-        await Promise.all(tasks);
+
+        try {
+          await Promise.all(tasks);
+        } catch (err) {
+          // Falha ao persistir chaves Signal — crítico: ratchet avançou em
+          // memória mas não foi salvo. Próxima sessão usará estado errado.
+          console.error(
+            `[SupabaseAuth][${adminId}] ERRO CRÍTICO ao salvar chaves Signal: ${err.message}`
+          );
+          throw err;
+        }
       },
     },
   };
 
   return {
     state,
-    /** Chame após creds.update para persistir as credenciais atualizadas. */
-    saveCreds: () => writeData(adminId, 'creds', state.creds),
+    saveCreds: () =>
+      writeData(adminId, 'creds', state.creds).catch(err => {
+        console.error(`[SupabaseAuth][${adminId}] ERRO ao salvar credenciais: ${err.message}`);
+        throw err;
+      }),
   };
 }
 
 /**
  * Remove todas as chaves de autenticação de um admin do Supabase.
- * Chamado no logout ou ao destruir a sessão.
  */
 async function clearAuthState(adminId) {
   const { error } = await supabase
@@ -160,7 +192,6 @@ async function clearAuthState(adminId) {
 
 /**
  * Retorna os adminIds que têm credenciais salvas no Supabase.
- * Usado na inicialização do servidor para restaurar sessões.
  */
 async function listSavedAdminIds() {
   const { data, error } = await supabase

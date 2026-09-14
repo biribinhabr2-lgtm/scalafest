@@ -15,16 +15,6 @@
   [headers.values]
     Cache-Control = "no-cache, no-store, must-revalidate"
 
-[[headers]]
-  for = "/Logistica/index.html"
-  [headers.values]
-    Cache-Control = "no-cache, no-store, must-revalidate"
-
-[[headers]]
-  for = "/Logistica/motorista.html"
-  [headers.values]
-    Cache-Control = "no-cache, no-store, must-revalidate"
-
 # Imagens e assets: cache longo
 [[headers]]
   for = "/assets/*"
@@ -52,22 +42,71 @@
   to   = "/Dashboard/index.html"
   status = 200
 
+# ── Páginas institucionais ─────────────────────────────────────────────────────
 [[redirects]]
-  from = "/logistica"
-  to   = "/Logistica/index.html"
+  from = "/sobre"
+  to   = "/Principal/sobre.html"
   status = 200
 
 [[redirects]]
-  from = "/logistica/"
-  to   = "/Logistica/index.html"
+  from = "/sobre/"
+  to   = "/Principal/sobre.html"
   status = 200
 
 [[redirects]]
-  from = "/logistica/motorista"
-  to   = "/Logistica/motorista.html"
+  from = "/blog"
+  to   = "/Principal/blog.html"
   status = 200
 
 [[redirects]]
-  from = "/logistica/motorista/"
-  to   = "/Logistica/motorista.html"
+  from = "/blog/"
+  to   = "/Principal/blog.html"
   status = 200
+
+[[redirects]]
+  from = "/privacidade"
+  to   = "/Principal/privacidade.html"
+  status = 200
+
+[[redirects]]
+  from = "/privacidade/"
+  to   = "/Principal/privacidade.html"
+  status = 200
+
+[[redirects]]
+  from = "/termos"
+  to   = "/Principal/termos.html"
+  status = 200
+
+[[redirects]]
+  from = "/termos/"
+  to   = "/Principal/termos.html"
+  status = 200
+
+[[redirects]]
+  from = "/contato"
+  to   = "/Principal/contato.html"
+  status = 200
+
+[[redirects]]
+  from = "/contato/"
+  to   = "/Principal/contato.html"
+  status = 200
+
+[[redirects]]
+  from = "/changelog"
+  to   = "/Principal/changelog.html"
+  status = 200
+
+[[redirects]]
+  from = "/changelog/"
+  to   = "/Principal/changelog.html"
+  status = 200
+
+# ── Google Calendar OAuth callback ────────────────────────────────────────────
+# Redireciona para a Supabase Edge Function que troca o code por tokens
+[[redirects]]
+  from = "/auth/google/callback"
+  to   = "https://ybnqjvucyutpdjfpkgzg.supabase.co/functions/v1/google-oauth-callback"
+  status = 301
+  force  = true

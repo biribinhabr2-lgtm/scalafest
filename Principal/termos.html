@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Termos de Uso — EscalaFest</title>
+  <meta name="description" content="Termos de uso do EscalaFest: descrição do serviço, planos, cancelamento e responsabilidades."/>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script>if(location.protocol!=='https:'&&location.protocol!=='file:'&&location.hostname!=='localhost'&&location.hostname!=='127.0.0.1'){location.replace('https://'+location.host+location.pathname+location.search);}</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] },
+          colors: {
+            navy: { 950:'#040D1A', 900:'#071225', 800:'#0D1F3C' },
+            teal: { 400:'#2DD4BF', 500:'#14B8A6', 600:'#0D9488' },
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    *{box-sizing:border-box}html{font-family:'Plus Jakarta Sans',sans-serif}
+    .gradient-text{background:linear-gradient(135deg,#2DD4BF 0%,#14B8A6 50%,#0D9488 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .nav-blur{background:rgba(7,18,37,.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(45,212,191,.08)}
+    .btn-cta{background:linear-gradient(135deg,#14B8A6,#0D9488);transition:all .25s ease}
+    .btn-cta:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(20,184,166,.35)}
+    .btn-outline{border:1.5px solid rgba(45,212,191,.35);transition:all .25s ease}
+    .btn-outline:hover{border-color:rgba(45,212,191,.7);background:rgba(45,212,191,.08)}
+    ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#040D1A}::-webkit-scrollbar-thumb{background:#0D9488;border-radius:99px}
+    .prose h2{font-size:1.25rem;font-weight:700;color:#fff;margin-top:2.5rem;margin-bottom:.75rem;padding-bottom:.5rem;border-bottom:1px solid rgba(45,212,191,.1)}
+    .prose h3{font-size:1rem;font-weight:600;color:#e2e8f0;margin-top:1.5rem;margin-bottom:.5rem}
+    .prose p{color:#94a3b8;line-height:1.75;margin-bottom:.75rem}
+    .prose ul{color:#94a3b8;line-height:1.75;margin-bottom:.75rem;padding-left:1.25rem;list-style-type:disc}
+    .prose ul li{margin-bottom:.25rem}
+    .prose a{color:#2DD4BF;text-decoration:underline}
+    .prose strong{color:#e2e8f0}
+    .toc-link{color:#94a3b8;font-size:.875rem;line-height:1.75;transition:color .2s}
+    .toc-link:hover{color:#2DD4BF}
+  </style>
+</head>
+<body class="bg-navy-950 text-white antialiased overflow-x-hidden">
+
+<!-- NAVBAR -->
+<nav class="fixed top-0 left-0 right-0 z-50 nav-blur">
+  <div class="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
+    <a href="/" class="flex items-center gap-2.5">
+      <div style="background:#fff;border-radius:8px;padding:3px 5px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">
+        <img src="/Principal/assets/logo.png" alt="Logo EscalaFest" style="height:30px;object-fit:contain;display:block"/>
+      </div>
+      <span class="font-extrabold text-lg text-white tracking-tight">EscalaFest</span>
+    </a>
+    <div class="hidden md:flex items-center gap-8">
+      <a href="/#recursos" class="text-sm text-slate-400 hover:text-teal-400 transition-colors font-medium">Recursos</a>
+      <a href="/#precos" class="text-sm text-slate-400 hover:text-teal-400 transition-colors font-medium">Preços</a>
+      <a href="/privacidade" class="text-sm text-slate-400 hover:text-teal-400 transition-colors font-medium">Privacidade</a>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="/?login=1" class="hidden md:inline-flex btn-outline text-white font-semibold text-sm px-5 py-2.5 rounded-xl">Já sou cliente</a>
+      <a href="/?register=1" class="hidden md:inline-flex btn-cta text-white font-semibold text-sm px-5 py-2.5 rounded-xl">Começar Grátis</a>
+    </div>
+  </div>
+</nav>
+
+<!-- PAGE HEADER -->
+<section class="pt-32 pb-12 px-5 text-center" style="background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(13,148,136,.15) 0%,transparent 70%)">
+  <div class="max-w-3xl mx-auto">
+    <span class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold mb-6" style="background:rgba(20,184,166,.1);border:1px solid rgba(20,184,166,.2);color:#2DD4BF">📋 Legal</span>
+    <h1 class="text-4xl md:text-5xl font-extrabold mb-4 leading-tight"><span class="gradient-text">Termos de Uso</span></h1>
+    <p class="text-slate-400">Última atualização: 25 de junho de 2026 &nbsp;·&nbsp; Vigência: imediata</p>
+  </div>
+</section>
+
+<!-- CONTENT -->
+<main class="max-w-5xl mx-auto px-5 pb-24">
+  <div class="flex gap-10 items-start">
+
+    <!-- Sumário lateral -->
+    <aside class="hidden lg:block w-56 flex-shrink-0 sticky top-24">
+      <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Nesta página</p>
+      <nav class="flex flex-col gap-1">
+        <a class="toc-link" href="#aceite">1. Aceite</a>
+        <a class="toc-link" href="#servico">2. O serviço</a>
+        <a class="toc-link" href="#cadastro">3. Cadastro</a>
+        <a class="toc-link" href="#planos">4. Planos e pagamento</a>
+        <a class="toc-link" href="#cancelamento">5. Cancelamento</a>
+        <a class="toc-link" href="#uso-aceitavel">6. Uso aceitável</a>
+        <a class="toc-link" href="#propriedade">7. Propriedade intelectual</a>
+        <a class="toc-link" href="#disponibilidade">8. Disponibilidade</a>
+        <a class="toc-link" href="#responsabilidade">9. Responsabilidade</a>
+        <a class="toc-link" href="#privacidade-ref">10. Privacidade</a>
+        <a class="toc-link" href="#alteracoes">11. Alterações</a>
+        <a class="toc-link" href="#foro">12. Lei aplicável e foro</a>
+      </nav>
+    </aside>
+
+    <!-- Corpo -->
+    <div class="flex-1 min-w-0 prose">
+
+      <div class="rounded-xl p-5 mb-6" style="background:rgba(20,184,166,.07);border:1px solid rgba(45,212,191,.15)">
+        <p class="!text-teal-400 !mb-0 text-sm font-medium">Leia estes Termos com atenção antes de utilizar o EscalaFest. O uso da plataforma implica a aceitação integral das condições descritas abaixo.</p>
+      </div>
+
+      <h2 id="aceite">1. Aceite dos Termos</h2>
+      <p>Ao criar uma conta, acessar ou utilizar qualquer funcionalidade do EscalaFest, você declara que leu, compreendeu e concorda com estes Termos de Uso. Se não concordar com qualquer condição, não utilize o serviço.</p>
+      <p>Estes Termos se aplicam a todos os usuários da plataforma, incluindo administradores, funcionários convidados e visitantes.</p>
+
+      <h2 id="servico">2. Descrição do Serviço</h2>
+      <p>O EscalaFest é uma plataforma SaaS (Software as a Service) para gestão de escalas e equipes de eventos. As funcionalidades incluem, conforme o plano contratado:</p>
+      <ul>
+        <li>Cadastro e gestão de freelancers e funcionários</li>
+        <li>Criação e controle de eventos, escalas e horários</li>
+        <li>Cálculo de cachês, bônus e relatórios financeiros</li>
+        <li>Envio de notificações automáticas por WhatsApp</li>
+        <li>Módulo de logística e despacho de motoristas (plano Grande Empresa)</li>
+        <li>Acesso de secretária/assistente (planos Pequena e Grande Empresa)</li>
+      </ul>
+      <p>O EscalaFest é oferecido "como está" (as-is) e pode ser atualizado, expandido ou ter funcionalidades removidas sem aviso prévio, exceto quando a remoção afetar funcionalidades essenciais do plano contratado.</p>
+
+      <h2 id="cadastro">3. Cadastro e Responsabilidades do Usuário</h2>
+      <h3>3.1 Elegibilidade</h3>
+      <p>Para usar o EscalaFest, você deve ter pelo menos 18 anos de idade e capacidade legal para celebrar contratos no Brasil.</p>
+
+      <h3>3.2 Conta</h3>
+      <ul>
+        <li>Você é responsável por manter a confidencialidade de suas credenciais de acesso</li>
+        <li>Notifique-nos imediatamente em caso de acesso não autorizado à sua conta</li>
+        <li>Cada conta é pessoal e intransferível</li>
+        <li>É proibido compartilhar credenciais de acesso com terceiros não autorizados</li>
+      </ul>
+
+      <h3>3.3 Veracidade das informações</h3>
+      <p>Você se compromete a fornecer informações verdadeiras, precisas e atualizadas durante o cadastro e uso da plataforma. O EscalaFest não se responsabiliza por danos decorrentes de informações falsas ou desatualizadas.</p>
+
+      <h2 id="planos">4. Planos, Preços e Pagamento</h2>
+      <h3>4.1 Planos disponíveis</h3>
+      <ul>
+        <li><strong>Amador (trial de 7 dias gratuito):</strong> até 10 funcionários, escalas, WhatsApp</li>
+        <li><strong>Pequena Empresa:</strong> até 25 funcionários + acesso de secretária</li>
+        <li><strong>Grande Empresa:</strong> até 40 funcionários + secretária + módulo de motoristas</li>
+      </ul>
+
+      <h3>4.2 Cobrança</h3>
+      <ul>
+        <li>Os planos são cobrados mensalmente ou anualmente, conforme selecionado no ato da assinatura</li>
+        <li>O pagamento é processado pelo <strong>Asaas</strong> via PIX ou cartão de crédito</li>
+        <li>A renovação é automática ao término de cada período, salvo cancelamento prévio</li>
+        <li>Preços podem ser reajustados com aviso de 30 dias de antecedência</li>
+      </ul>
+
+      <h3>4.3 Período de teste</h3>
+      <p>O período de teste gratuito de 7 dias é oferecido no plano Amador. Ao término, é necessário assinar um plano para continuar usando o serviço. Não há cobrança automática ao final do trial.</p>
+
+      <h2 id="cancelamento">5. Cancelamento e Reembolso</h2>
+      <h3>5.1 Cancelamento pelo usuário</h3>
+      <ul>
+        <li>Você pode cancelar sua assinatura a qualquer momento diretamente no painel</li>
+        <li>O acesso permanece ativo até o fim do período já pago</li>
+        <li>Não há multa ou taxa de cancelamento</li>
+        <li>Seus dados ficam disponíveis para exportação por 30 dias após o cancelamento</li>
+      </ul>
+
+      <h3>5.2 Reembolso</h3>
+      <ul>
+        <li>Solicitações de reembolso feitas em até 7 dias após a cobrança serão analisadas caso a caso</li>
+        <li>Não oferecemos reembolso proporcional para cancelamentos no meio do período</li>
+        <li>Em caso de falha técnica grave imputável ao EscalaFest, o reembolso ou crédito será concedido após análise</li>
+      </ul>
+
+      <h3>5.3 Cancelamento pelo EscalaFest</h3>
+      <p>Podemos suspender ou encerrar sua conta em caso de violação destes Termos, com notificação por e-mail. Em casos de fraude ou uso ilícito, a suspensão pode ser imediata.</p>
+
+      <h2 id="uso-aceitavel">6. Uso Aceitável</h2>
+      <p>É expressamente proibido usar o EscalaFest para:</p>
+      <ul>
+        <li>Atividades ilegais ou que violem direitos de terceiros</li>
+        <li>Envio de spam ou mensagens não solicitadas em massa</li>
+        <li>Tentativas de acesso não autorizado a sistemas, contas ou dados de outros usuários</li>
+        <li>Engenharia reversa, descompilação ou criação de produtos concorrentes baseados na plataforma</li>
+        <li>Cadastro de informações falsas ou enganosas sobre funcionários ou eventos</li>
+        <li>Uso automatizado (bots, scrapers) sem autorização prévia por escrito</li>
+      </ul>
+      <p>O descumprimento pode resultar em suspensão imediata da conta sem reembolso.</p>
+
+      <h2 id="propriedade">7. Propriedade Intelectual</h2>
+      <p>Todo o código-fonte, design, logotipos, textos e funcionalidades do EscalaFest são de propriedade exclusiva do EscalaFest e protegidos por leis de propriedade intelectual brasileiras e internacionais.</p>
+      <p>O usuário recebe uma licença limitada, não exclusiva e intransferível para usar a plataforma conforme estes Termos. Nada nestes Termos transfere qualquer direito de propriedade intelectual ao usuário.</p>
+      <p><strong>Seus dados permanecem seus.</strong> O EscalaFest não reivindica propriedade sobre os dados que você insere na plataforma.</p>
+
+      <h2 id="disponibilidade">8. Disponibilidade do Serviço</h2>
+      <p>Buscamos manter o EscalaFest disponível 24/7, mas não garantimos disponibilidade ininterrupta. Manutenções programadas serão comunicadas com antecedência quando possível. Não nos responsabilizamos por indisponibilidades causadas por:</p>
+      <ul>
+        <li>Falhas em serviços de terceiros (Supabase, Railway, Netlify)</li>
+        <li>Problemas de conectividade do usuário</li>
+        <li>Casos de força maior ou atos de terceiros</li>
+      </ul>
+
+      <h2 id="responsabilidade">9. Limitação de Responsabilidade</h2>
+      <p>Na máxima extensão permitida pela legislação brasileira:</p>
+      <ul>
+        <li>O EscalaFest não será responsável por danos indiretos, incidentais, especiais ou consequenciais</li>
+        <li>Nossa responsabilidade total por qualquer reclamação está limitada ao valor pago pelo usuário nos últimos 3 meses</li>
+        <li>Não nos responsabilizamos por decisões de negócio tomadas com base em dados da plataforma</li>
+        <li>O usuário é integralmente responsável pelas informações que insere e pelo cumprimento das obrigações trabalhistas e fiscais com sua equipe</li>
+      </ul>
+
+      <h2 id="privacidade-ref">10. Privacidade</h2>
+      <p>O tratamento de dados pessoais é regido pela nossa <a href="/privacidade">Política de Privacidade</a>, incorporada a estes Termos por referência. O uso do EscalaFest implica também a aceitação da Política de Privacidade.</p>
+
+      <h2 id="alteracoes">11. Alterações nos Termos</h2>
+      <p>Podemos atualizar estes Termos periodicamente. Alterações relevantes serão comunicadas por e-mail com no mínimo 15 dias de antecedência. O uso continuado da plataforma após esse prazo implica aceitação dos novos Termos.</p>
+
+      <h2 id="foro">12. Lei Aplicável e Foro</h2>
+      <p>Estes Termos são regidos pelas leis da República Federativa do Brasil, em especial:</p>
+      <ul>
+        <li>Lei nº 10.406/2002 (Código Civil)</li>
+        <li>Lei nº 8.078/1990 (Código de Defesa do Consumidor)</li>
+        <li>Lei nº 12.965/2014 (Marco Civil da Internet)</li>
+        <li>Lei nº 13.709/2018 (LGPD)</li>
+      </ul>
+      <p>Fica eleito o foro da comarca de domicílio do usuário para dirimir controvérsias decorrentes destes Termos, conforme art. 101, inciso I, do Código de Defesa do Consumidor.</p>
+
+      <p>Dúvidas? Entre em contato: <a href="mailto:biribinhabr2@gmail.com">biribinhabr2@gmail.com</a> ou <a href="/contato">formulário de contato</a>.</p>
+
+    </div>
+  </div>
+</main>
+
+<!-- FOOTER -->
+<footer class="border-t border-slate-800 py-14">
+  <div class="max-w-5xl mx-auto px-5">
+    <div class="grid sm:grid-cols-2 md:grid-cols-4 gap-10 mb-10">
+      <div class="col-span-full md:col-span-1">
+        <img src="/Principal/assets/logo.png" alt="Logo EscalaFest" style="height:32px;object-fit:contain;filter:brightness(0) invert(1);margin-bottom:12px"/>
+        <p class="text-slate-500 text-sm leading-relaxed">Gestão de escalas para equipes de eventos. Simples, rápido e eficiente.</p>
+      </div>
+      <div>
+        <h4 class="font-semibold text-white text-sm mb-4">Produto</h4>
+        <ul class="flex flex-col gap-2.5">
+          <li><a href="/#recursos" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Recursos</a></li>
+          <li><a href="/#precos" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Preços</a></li>
+          <li><a href="/#faq" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">FAQ</a></li>
+          <li><a href="/changelog" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Changelog</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="font-semibold text-white text-sm mb-4">Empresa</h4>
+        <ul class="flex flex-col gap-2.5">
+          <li><a href="/sobre" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Sobre nós</a></li>
+          <li><a href="/blog" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Blog</a></li>
+          <li><a href="/contato" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Contato</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="font-semibold text-white text-sm mb-4">Legal</h4>
+        <ul class="flex flex-col gap-2.5">
+          <li><a href="/privacidade" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Privacidade</a></li>
+          <li><a href="/termos" class="text-teal-400 text-sm font-semibold">Termos de Uso</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="border-t border-slate-800 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <span class="text-slate-500 text-sm">© 2026 EscalaFest. Todos os direitos reservados.</span>
+      <div class="flex items-center gap-5">
+        <a href="#" class="text-slate-500 hover:text-teal-400 transition-colors text-sm">Instagram</a>
+        <a href="#" class="text-slate-500 hover:text-teal-400 transition-colors text-sm">WhatsApp</a>
+        <a href="#" class="text-slate-500 hover:text-teal-400 transition-colors text-sm">LinkedIn</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Contato — EscalaFest</title>
+  <meta name="description" content="Entre em contato com o EscalaFest. Tire dúvidas, envie sugestões ou solicite suporte."/>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script>if(location.protocol!=='https:'&&location.protocol!=='file:'&&location.hostname!=='localhost'&&location.hostname!=='127.0.0.1'){location.replace('https://'+location.host+location.pathname+location.search);}</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] },
+          colors: {
+            navy: { 950:'#040D1A', 900:'#071225', 800:'#0D1F3C' },
+            teal: { 400:'#2DD4BF', 500:'#14B8A6', 600:'#0D9488' },
+          },
+          animation: { 'fade-up': 'fadeUp .6s ease both' },
+          keyframes: { fadeUp: { '0%':{opacity:0,transform:'translateY(24px)'}, '100%':{opacity:1,transform:'translateY(0)'} } }
+        }
+      }
+    }
+  </script>
+  <style>
+    *{box-sizing:border-box}html{font-family:'Plus Jakarta Sans',sans-serif}
+    .gradient-text{background:linear-gradient(135deg,#2DD4BF 0%,#14B8A6 50%,#0D9488 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .nav-blur{background:rgba(7,18,37,.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(45,212,191,.08)}
+    .btn-cta{background:linear-gradient(135deg,#14B8A6,#0D9488);transition:all .25s ease}
+    .btn-cta:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(20,184,166,.35)}
+    .btn-outline{border:1.5px solid rgba(45,212,191,.35);transition:all .25s ease}
+    .btn-outline:hover{border-color:rgba(45,212,191,.7);background:rgba(45,212,191,.08);transform:translateY(-2px)}
+    .card-glass{background:rgba(13,31,60,.6);backdrop-filter:blur(12px);border:1px solid rgba(45,212,191,.1)}
+    ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#040D1A}::-webkit-scrollbar-thumb{background:#0D9488;border-radius:99px}
+    .field-input{width:100%;padding:12px 16px;border-radius:12px;color:#fff;font-size:.875rem;outline:none;background:#071225;border:1.5px solid rgba(45,212,191,.15);font-family:inherit;transition:border-color .2s}
+    .field-input:focus{border-color:rgba(45,212,191,.5)}
+    .field-input::placeholder{color:#475569}
+  </style>
+</head>
+<body class="bg-navy-950 text-white antialiased overflow-x-hidden">
+
+<!-- NAVBAR -->
+<nav class="fixed top-0 left-0 right-0 z-50 nav-blur">
+  <div class="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
+    <a href="/" class="flex items-center gap-2.5">
+      <div style="background:#fff;border-radius:8px;padding:3px 5px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">
+        <img src="/Principal/assets/logo.png" alt="Logo EscalaFest" style="height:30px;object-fit:contain;display:block"/>
+      </div>
+      <span class="font-extrabold text-lg text-white tracking-tight">EscalaFest</span>
+    </a>
+    <div class="hidden md:flex items-center gap-8">
+      <a href="/#recursos" class="text-sm text-slate-400 hover:text-teal-400 transition-colors font-medium">Recursos</a>
+      <a href="/#precos" class="text-sm text-slate-400 hover:text-teal-400 transition-colors font-medium">Preços</a>
+      <a href="/#faq" class="text-sm text-slate-400 hover:text-teal-400 transition-colors font-medium">FAQ</a>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="/?login=1" class="hidden md:inline-flex btn-outline text-white font-semibold text-sm px-5 py-2.5 rounded-xl">Já sou cliente</a>
+      <a href="/?register=1" class="hidden md:inline-flex btn-cta text-white font-semibold text-sm px-5 py-2.5 rounded-xl">Começar Grátis</a>
+    </div>
+  </div>
+</nav>
+
+<!-- PAGE HEADER -->
+<section class="pt-32 pb-16 px-5 text-center" style="background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(13,148,136,.15) 0%,transparent 70%)">
+  <div class="max-w-3xl mx-auto">
+    <span class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold mb-6" style="background:rgba(20,184,166,.1);border:1px solid rgba(20,184,166,.2);color:#2DD4BF">💬 Fale conosco</span>
+    <h1 class="text-4xl md:text-5xl font-extrabold mb-5 leading-tight"><span class="gradient-text">Entre em Contato</span></h1>
+    <p class="text-slate-400 text-lg leading-relaxed">Dúvidas, sugestões ou quer conhecer mais? Respondemos em até 24 horas.</p>
+  </div>
+</section>
+
+<!-- CONTENT -->
+<main class="max-w-5xl mx-auto px-5 pb-24">
+  <div class="grid md:grid-cols-5 gap-10">
+
+    <!-- Formulário -->
+    <div class="md:col-span-3">
+      <div class="card-glass rounded-2xl p-8">
+        <h2 class="text-xl font-bold text-white mb-6">Envie uma mensagem</h2>
+
+        <form id="contactForm" onsubmit="handleContact(event)" class="flex flex-col gap-5">
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Nome completo</label>
+            <input id="cNome" type="text" placeholder="Seu nome" required class="field-input"/>
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">E-mail</label>
+            <input id="cEmail" type="email" placeholder="seu@email.com" required class="field-input"/>
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Assunto</label>
+            <select id="cAssunto" class="field-input" style="appearance:none;cursor:pointer">
+              <option value="duvida">Dúvida sobre o produto</option>
+              <option value="suporte">Suporte técnico</option>
+              <option value="sugestao">Sugestão de melhoria</option>
+              <option value="parceria">Parceria / comercial</option>
+              <option value="lgpd">Privacidade / LGPD</option>
+              <option value="outro">Outro</option>
+            </select>
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Mensagem</label>
+            <textarea id="cMensagem" rows="5" placeholder="Como podemos ajudar?" required class="field-input resize-none"></textarea>
+          </div>
+
+          <!-- Status -->
+          <div id="cStatus" class="hidden rounded-xl px-4 py-3 text-sm font-medium"></div>
+
+          <button type="submit" id="cBtn" class="btn-cta text-white font-bold text-sm py-3.5 rounded-xl flex items-center justify-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+            Enviar mensagem
+          </button>
+          <p class="text-slate-500 text-xs text-center">Ao enviar, você concorda com nossa <a href="/privacidade" class="text-teal-400 hover:underline">Política de Privacidade</a>.</p>
+        </form>
+      </div>
+    </div>
+
+    <!-- Info lateral -->
+    <div class="md:col-span-2 flex flex-col gap-5">
+
+      <div class="card-glass rounded-2xl p-6">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl mb-4" style="background:rgba(20,184,166,.15)">📧</div>
+        <h3 class="font-bold text-white mb-1">E-mail</h3>
+        <p class="text-slate-400 text-sm mb-3">Para qualquer assunto, incluindo questões de privacidade (LGPD).</p>
+        <a href="mailto:biribinhabr2@gmail.com" class="text-teal-400 text-sm hover:underline font-medium">biribinhabr2@gmail.com</a>
+      </div>
+
+      <div class="card-glass rounded-2xl p-6">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl mb-4" style="background:rgba(20,184,166,.15)">💬</div>
+        <h3 class="font-bold text-white mb-1">WhatsApp</h3>
+        <p class="text-slate-400 text-sm mb-3">Resposta mais rápida para questões urgentes de suporte.</p>
+        <a href="https://wa.me/5511999999999?text=Ol%C3%A1%2C+vim+do+EscalaFest+e+preciso+de+ajuda" target="_blank" rel="noopener" class="text-teal-400 text-sm hover:underline font-medium">Abrir WhatsApp →</a>
+      </div>
+
+      <div class="card-glass rounded-2xl p-6">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl mb-4" style="background:rgba(20,184,166,.15)">⏰</div>
+        <h3 class="font-bold text-white mb-1">Tempo de resposta</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">E-mail: até 24 horas em dias úteis.<br/>WhatsApp: até 4 horas em horário comercial.</p>
+      </div>
+
+      <div class="card-glass rounded-2xl p-6">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl mb-4" style="background:rgba(20,184,166,.15)">📖</div>
+        <h3 class="font-bold text-white mb-2">Links úteis</h3>
+        <ul class="flex flex-col gap-2">
+          <li><a href="/#faq" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Perguntas frequentes →</a></li>
+          <li><a href="/changelog" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Últimas atualizações →</a></li>
+          <li><a href="/privacidade" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Política de privacidade →</a></li>
+          <li><a href="/termos" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Termos de uso →</a></li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+</main>
+
+<!-- FOOTER -->
+<footer class="border-t border-slate-800 py-14">
+  <div class="max-w-5xl mx-auto px-5">
+    <div class="grid sm:grid-cols-2 md:grid-cols-4 gap-10 mb-10">
+      <div class="col-span-full md:col-span-1">
+        <img src="/Principal/assets/logo.png" alt="Logo EscalaFest" style="height:32px;object-fit:contain;filter:brightness(0) invert(1);margin-bottom:12px"/>
+        <p class="text-slate-500 text-sm leading-relaxed">Gestão de escalas para equipes de eventos. Simples, rápido e eficiente.</p>
+      </div>
+      <div>
+        <h4 class="font-semibold text-white text-sm mb-4">Produto</h4>
+        <ul class="flex flex-col gap-2.5">
+          <li><a href="/#recursos" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Recursos</a></li>
+          <li><a href="/#precos" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Preços</a></li>
+          <li><a href="/#faq" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">FAQ</a></li>
+          <li><a href="/changelog" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Changelog</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="font-semibold text-white text-sm mb-4">Empresa</h4>
+        <ul class="flex flex-col gap-2.5">
+          <li><a href="/sobre" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Sobre nós</a></li>
+          <li><a href="/blog" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Blog</a></li>
+          <li><a href="/contato" class="text-teal-400 text-sm font-semibold">Contato</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="font-semibold text-white text-sm mb-4">Legal</h4>
+        <ul class="flex flex-col gap-2.5">
+          <li><a href="/privacidade" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Privacidade</a></li>
+          <li><a href="/termos" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Termos de Uso</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="border-t border-slate-800 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <span class="text-slate-500 text-sm">© 2026 EscalaFest. Todos os direitos reservados.</span>
+      <div class="flex items-center gap-5">
+        <a href="#" class="text-slate-500 hover:text-teal-400 transition-colors text-sm">Instagram</a>
+        <a href="#" class="text-slate-500 hover:text-teal-400 transition-colors text-sm">WhatsApp</a>
+        <a href="#" class="text-slate-500 hover:text-teal-400 transition-colors text-sm">LinkedIn</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script>
+const SUPA_URL = "https://ybnqjvucyutpdjfpkgzg.supabase.co";
+const SUPA_KEY = "sb_publishable_Gk3zBpDulK3EHOkTBzLKrg_JE4gbwSH";
+
+async function handleContact(e) {
+  e.preventDefault();
+  const btn = document.getElementById('cBtn');
+  const status = document.getElementById('cStatus');
+  const nome = document.getElementById('cNome').value.trim();
+  const email = document.getElementById('cEmail').value.trim();
+  const assunto = document.getElementById('cAssunto').value;
+  const mensagem = document.getElementById('cMensagem').value.trim();
+
+  btn.disabled = true;
+  btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="animation:spin 1s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Enviando...';
+
+  status.className = 'hidden';
+
+  try {
+    const res = await fetch(`${SUPA_URL}/functions/v1/contact-form`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'apikey': SUPA_KEY,
+        'Authorization': `Bearer ${SUPA_KEY}`
+      },
+      body: JSON.stringify({ nome, email, assunto, mensagem })
+    });
+
+    if (!res.ok) throw new Error('Erro ao enviar');
+
+    status.className = 'rounded-xl px-4 py-3 text-sm font-medium';
+    status.style.background = 'rgba(20,184,166,.1)';
+    status.style.border = '1px solid rgba(45,212,191,.2)';
+    status.style.color = '#2DD4BF';
+    status.textContent = '✓ Mensagem enviada! Responderemos em até 24 horas.';
+
+    document.getElementById('contactForm').reset();
+  } catch (err) {
+    status.className = 'rounded-xl px-4 py-3 text-sm font-medium';
+    status.style.background = 'rgba(239,68,68,.08)';
+    status.style.border = '1px solid rgba(239,68,68,.2)';
+    status.style.color = '#f87171';
+    status.textContent = 'Erro ao enviar. Por favor, tente pelo e-mail: biribinhabr2@gmail.com';
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg> Enviar mensagem';
+  }
+}
+</script>
+<style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+
+</body>
+</html>

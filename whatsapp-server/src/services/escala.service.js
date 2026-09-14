@@ -4,6 +4,7 @@ const dadosRepo  = require('../repositories/dados.repo');
 const enviosRepo = require('../repositories/envios.repo');
 const waSvc      = require('./whatsapp.service');
 const { buildEscalaDiariaGrupo } = require('../templates/escala.template');
+const supabase = require('../config/supabase');
 
 /**
  * Envia a escala completa de um dia para um grupo do WhatsApp.
@@ -42,7 +43,7 @@ async function enviarEscalaDia(adminId, data, grupoJid) {
   // ── 3. Índice de freelancers ─────────────────────────────────────────────────
   const flById = Object.fromEntries(freelancers.map(f => [String(f.id), f]));
 
-  // ── 4. Montar funcionários sem telefone (para aviso) ─────────────────────────
+  // ── 4. Coletar freelancers sem telefone ──────────────────────────────────────
   const semTelefone = [];
   for (const ev of eventosDoDia) {
     for (const m of (ev.equipe ?? [])) {
@@ -59,10 +60,18 @@ async function enviarEscalaDia(adminId, data, grupoJid) {
   // ── 6. Enviar para o grupo ───────────────────────────────────────────────────
   const resultado = await waSvc.enviarMensagem(adminId, grupoJid, texto, mentions);
 
-  // ── 7. Registrar auditoria ───────────────────────────────────────────────────
-  await enviosRepo.salvarEnvios([{
+  // ── 7. Marcar funcionários como notificados ──────────────────────────────────
+  if (resultado.ok) {
+    await _marcarFuncionariosNotificados(adminId, eventosDoDia, data);
+  }
+
+  // ── 8. Registrar auditoria — 1 registro por funcionário único ─────────────────
+  const registrosAuditoria = [];
+
+  // Registro geral do grupo
+  registrosAuditoria.push({
     admin_id:        adminId,
-    evento_id:       0,
+    evento_id:       null,
     evento_nome:     `Escala do dia ${data} (${eventosDoDia.length} eventos)`,
     freelancer_id:   null,
     freelancer_nome: null,
@@ -70,9 +79,36 @@ async function enviarEscalaDia(adminId, data, grupoJid) {
     mensagem:        texto,
     status:          resultado.ok ? 'enviado' : 'erro',
     erro:            resultado.erro ?? null,
-  }]);
+  });
 
-  // ── 8. Contar funcionários únicos ────────────────────────────────────────────
+  // Registros individuais por freelancer escalado
+  if (resultado.ok) {
+    const vistos = new Set();
+    for (const ev of eventosDoDia) {
+      for (const m of (ev.equipe ?? [])) {
+        const key = `${ev.id}:${m.freelancerId}`;
+        if (vistos.has(key)) continue;
+        vistos.add(key);
+
+        const fl = flById[String(m.freelancerId)];
+        registrosAuditoria.push({
+          admin_id:        adminId,
+          evento_id:       ev.id ?? null,
+          evento_nome:     ev.nome,
+          freelancer_id:   String(m.freelancerId),
+          freelancer_nome: fl?.nome ?? `ID ${m.freelancerId}`,
+          telefone:        fl?.telefone?.replace(/\D/g, '') || null,
+          mensagem:        `@mencionado na escala de grupo (${grupoJid})`,
+          status:          'enviado',
+          erro:            null,
+        });
+      }
+    }
+  }
+
+  await enviosRepo.salvarEnvios(registrosAuditoria);
+
+  // ── 9. Contar funcionários únicos ────────────────────────────────────────────
   const idsUnicos = new Set(
     eventosDoDia.flatMap(e => (e.equipe ?? []).map(m => m.freelancerId))
   );
@@ -84,6 +120,34 @@ async function enviarEscalaDia(adminId, data, grupoJid) {
     semTelefone,
     erro:              resultado.ok ? undefined : resultado.erro,
   };
+}
+
+/**
+ * Atualiza `wa_notificado_em` nos registros de `event_team` para todos os
+ * membros dos eventos do dia. Falha silenciosa se a coluna não existir ainda
+ * (a migration pode não ter sido rodada).
+ */
+async function _marcarFuncionariosNotificados(adminId, eventosDoDia, data) {
+  try {
+    const eventIds = eventosDoDia
+      .map(e => e.id)
+      .filter(id => id && typeof id === 'string');
+
+    if (!eventIds.length) return;
+
+    const { error } = await supabase
+      .from('event_team')
+      .update({ wa_notificado_em: new Date().toISOString() })
+      .in('event_id', eventIds)
+      .eq('tenant_id', adminId);
+
+    if (error) {
+      // Coluna pode não existir ainda; log e continua
+      console.warn('[escala.service] wa_notificado_em não atualizado:', error.message);
+    }
+  } catch (err) {
+    console.warn('[escala.service] _marcarFuncionariosNotificados falhou silenciosamente:', err.message);
+  }
 }
 
 module.exports = { enviarEscalaDia };

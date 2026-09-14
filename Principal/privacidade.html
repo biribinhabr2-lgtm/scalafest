@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Política de Privacidade — EscalaFest</title>
+  <meta name="description" content="Política de privacidade do EscalaFest, em conformidade com a Lei Geral de Proteção de Dados (LGPD)."/>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script>if(location.protocol!=='https:'&&location.protocol!=='file:'&&location.hostname!=='localhost'&&location.hostname!=='127.0.0.1'){location.replace('https://'+location.host+location.pathname+location.search);}</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] },
+          colors: {
+            navy: { 950:'#040D1A', 900:'#071225', 800:'#0D1F3C', 700:'#152D52' },
+            teal: { 400:'#2DD4BF', 500:'#14B8A6', 600:'#0D9488' },
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    *{box-sizing:border-box}html{font-family:'Plus Jakarta Sans',sans-serif}
+    .gradient-text{background:linear-gradient(135deg,#2DD4BF 0%,#14B8A6 50%,#0D9488 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .nav-blur{background:rgba(7,18,37,.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(45,212,191,.08)}
+    .btn-cta{background:linear-gradient(135deg,#14B8A6,#0D9488);transition:all .25s ease}
+    .btn-cta:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(20,184,166,.35)}
+    .btn-outline{border:1.5px solid rgba(45,212,191,.35);transition:all .25s ease}
+    .btn-outline:hover{border-color:rgba(45,212,191,.7);background:rgba(45,212,191,.08)}
+    ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#040D1A}::-webkit-scrollbar-thumb{background:#0D9488;border-radius:99px}
+    .prose h2{font-size:1.25rem;font-weight:700;color:#fff;margin-top:2.5rem;margin-bottom:.75rem;padding-bottom:.5rem;border-bottom:1px solid rgba(45,212,191,.1)}
+    .prose h3{font-size:1rem;font-weight:600;color:#e2e8f0;margin-top:1.5rem;margin-bottom:.5rem}
+    .prose p{color:#94a3b8;line-height:1.75;margin-bottom:.75rem}
+    .prose ul{color:#94a3b8;line-height:1.75;margin-bottom:.75rem;padding-left:1.25rem;list-style-type:disc}
+    .prose ul li{margin-bottom:.25rem}
+    .prose a{color:#2DD4BF;text-decoration:underline}
+    .prose strong{color:#e2e8f0}
+    .toc-link{color:#94a3b8;font-size:.875rem;line-height:1.75;transition:color .2s}
+    .toc-link:hover{color:#2DD4BF}
+  </style>
+</head>
+<body class="bg-navy-950 text-white antialiased overflow-x-hidden">
+
+<!-- NAVBAR -->
+<nav class="fixed top-0 left-0 right-0 z-50 nav-blur">
+  <div class="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
+    <a href="/" class="flex items-center gap-2.5">
+      <div style="background:#fff;border-radius:8px;padding:3px 5px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">
+        <img src="/Principal/assets/logo.png" alt="Logo EscalaFest" style="height:30px;object-fit:contain;display:block"/>
+      </div>
+      <span class="font-extrabold text-lg text-white tracking-tight">EscalaFest</span>
+    </a>
+    <div class="hidden md:flex items-center gap-8">
+      <a href="/#recursos" class="text-sm text-slate-400 hover:text-teal-400 transition-colors font-medium">Recursos</a>
+      <a href="/#precos" class="text-sm text-slate-400 hover:text-teal-400 transition-colors font-medium">Preços</a>
+      <a href="/termos" class="text-sm text-slate-400 hover:text-teal-400 transition-colors font-medium">Termos</a>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="/?login=1" class="hidden md:inline-flex btn-outline text-white font-semibold text-sm px-5 py-2.5 rounded-xl">Já sou cliente</a>
+      <a href="/?register=1" class="hidden md:inline-flex btn-cta text-white font-semibold text-sm px-5 py-2.5 rounded-xl">Começar Grátis</a>
+    </div>
+  </div>
+</nav>
+
+<!-- PAGE HEADER -->
+<section class="pt-32 pb-12 px-5 text-center" style="background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(13,148,136,.15) 0%,transparent 70%)">
+  <div class="max-w-3xl mx-auto">
+    <span class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold mb-6" style="background:rgba(20,184,166,.1);border:1px solid rgba(20,184,166,.2);color:#2DD4BF">🔒 LGPD</span>
+    <h1 class="text-4xl md:text-5xl font-extrabold mb-4 leading-tight"><span class="gradient-text">Política de Privacidade</span></h1>
+    <p class="text-slate-400">Última atualização: 25 de junho de 2026 &nbsp;·&nbsp; Vigência: imediata</p>
+  </div>
+</section>
+
+<!-- CONTENT -->
+<main class="max-w-5xl mx-auto px-5 pb-24">
+  <div class="flex gap-10 items-start">
+
+    <!-- Sumário lateral (desktop) -->
+    <aside class="hidden lg:block w-56 flex-shrink-0 sticky top-24">
+      <p class="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Nesta página</p>
+      <nav class="flex flex-col gap-1">
+        <a class="toc-link" href="#controlador">1. Controlador</a>
+        <a class="toc-link" href="#dados">2. Dados coletados</a>
+        <a class="toc-link" href="#finalidade">3. Finalidade</a>
+        <a class="toc-link" href="#base-legal">4. Base legal</a>
+        <a class="toc-link" href="#compartilhamento">5. Compartilhamento</a>
+        <a class="toc-link" href="#retencao">6. Retenção</a>
+        <a class="toc-link" href="#seguranca">7. Segurança</a>
+        <a class="toc-link" href="#cookies">8. Cookies</a>
+        <a class="toc-link" href="#direitos">9. Seus direitos</a>
+        <a class="toc-link" href="#menores">10. Menores de idade</a>
+        <a class="toc-link" href="#alteracoes">11. Alterações</a>
+        <a class="toc-link" href="#dpo">12. Contato / DPO</a>
+      </nav>
+    </aside>
+
+    <!-- Corpo do documento -->
+    <div class="flex-1 min-w-0 prose">
+
+      <div class="rounded-xl p-5 mb-6" style="background:rgba(20,184,166,.07);border:1px solid rgba(45,212,191,.15)">
+        <p class="!text-teal-400 !mb-0 text-sm font-medium">Esta Política de Privacidade descreve como o EscalaFest coleta, usa, armazena e protege os seus dados pessoais, em conformidade com a <strong class="!text-teal-400">Lei nº 13.709/2018 (LGPD)</strong> e demais normas aplicáveis.</p>
+      </div>
+
+      <h2 id="controlador">1. Identificação do Controlador</h2>
+      <p><strong>EscalaFest</strong> é o controlador dos dados pessoais tratados nesta plataforma.</p>
+      <ul>
+        <li><strong>E-mail de contato:</strong> <a href="mailto:biribinhabr2@gmail.com">biribinhabr2@gmail.com</a></li>
+        <li><strong>Plataforma:</strong> <a href="https://escalafest.netlify.app" target="_blank" rel="noopener">escalafest.netlify.app</a></li>
+      </ul>
+
+      <h2 id="dados">2. Dados Pessoais Coletados</h2>
+      <p>Coletamos apenas os dados necessários para prestar o serviço. Os dados variam conforme o perfil do usuário:</p>
+
+      <h3>2.1 Dados fornecidos pelo titular</h3>
+      <ul>
+        <li><strong>Nome completo</strong> — para identificação na plataforma</li>
+        <li><strong>Endereço de e-mail</strong> — para autenticação e comunicações</li>
+        <li><strong>Senha</strong> — armazenada com hash criptográfico (nunca em texto simples)</li>
+        <li><strong>Dados de equipe cadastrados pelo administrador:</strong> nome e função dos freelancers</li>
+        <li><strong>Dados de eventos:</strong> nome, data, local, horários e valores de cachê</li>
+      </ul>
+
+      <h3>2.2 Dados de pagamento</h3>
+      <ul>
+        <li>Dados de cartão de crédito são processados exclusivamente pelo <strong>Asaas</strong> (nosso processador de pagamentos), não armazenados pelo EscalaFest.</li>
+        <li>Registramos apenas o status do pagamento, o plano ativado e as datas de vigência.</li>
+      </ul>
+
+      <h3>2.3 Dados coletados automaticamente</h3>
+      <ul>
+        <li><strong>Dados de uso:</strong> páginas acessadas, funcionalidades utilizadas, horários de acesso</li>
+        <li><strong>Dados técnicos:</strong> endereço IP, tipo de navegador, sistema operacional, resolução de tela</li>
+        <li><strong>Cookies e armazenamento local (localStorage):</strong> preferências de sessão e configurações do app</li>
+      </ul>
+
+      <h2 id="finalidade">3. Finalidade do Tratamento</h2>
+      <p>Utilizamos seus dados para as seguintes finalidades:</p>
+      <ul>
+        <li>Criação e manutenção da conta de acesso</li>
+        <li>Prestação dos serviços contratados (escalas, gestão de equipe, relatórios)</li>
+        <li>Processamento de pagamentos e controle de assinaturas</li>
+        <li>Envio de notificações por WhatsApp e e-mail relacionadas ao serviço</li>
+        <li>Suporte ao cliente e atendimento de solicitações</li>
+        <li>Melhoria da plataforma com base em dados de uso</li>
+        <li>Cumprimento de obrigações legais e regulatórias</li>
+      </ul>
+      <p><strong>Não utilizamos seus dados para publicidade de terceiros nem para venda de dados.</strong></p>
+
+      <h2 id="base-legal">4. Base Legal (Art. 7º da LGPD)</h2>
+      <ul>
+        <li><strong>Execução de contrato (inciso V):</strong> dados necessários para prestar o serviço assinado</li>
+        <li><strong>Consentimento (inciso I):</strong> para envio de comunicações de marketing, quando aplicável</li>
+        <li><strong>Legítimo interesse (inciso IX):</strong> dados de uso para melhoria do produto, segurança e prevenção a fraudes</li>
+        <li><strong>Cumprimento de obrigação legal (inciso II):</strong> dados fiscais e registros contábeis</li>
+      </ul>
+
+      <h2 id="compartilhamento">5. Compartilhamento de Dados</h2>
+      <p>O EscalaFest compartilha dados pessoais apenas com os seguintes operadores e nas seguintes condições:</p>
+      <ul>
+        <li><strong>Supabase Inc.</strong> — banco de dados e autenticação (servidor na região us-east-1 / AWS). <a href="https://supabase.com/privacy" target="_blank" rel="noopener">Política de privacidade</a></li>
+        <li><strong>Asaas Gestão Financeira S.A.</strong> — processamento de pagamentos PIX e cartão. <a href="https://www.asaas.com/politica-de-privacidade" target="_blank" rel="noopener">Política de privacidade</a></li>
+        <li><strong>Railway Technologies Inc.</strong> — infraestrutura do servidor de notificações. <a href="https://railway.app/legal/privacy" target="_blank" rel="noopener">Política de privacidade</a></li>
+        <li><strong>Netlify Inc.</strong> — hospedagem do frontend. <a href="https://www.netlify.com/privacy/" target="_blank" rel="noopener">Política de privacidade</a></li>
+      </ul>
+      <p>Todos os operadores foram contratualmente obrigados a proteger seus dados em conformidade com a LGPD.</p>
+      <p><strong>Não compartilhamos seus dados com terceiros para fins comerciais, publicitários ou de marketing sem seu consentimento expresso.</strong></p>
+
+      <h2 id="retencao">6. Prazo de Retenção</h2>
+      <ul>
+        <li><strong>Dados da conta ativa:</strong> mantidos enquanto a conta estiver ativa</li>
+        <li><strong>Após cancelamento:</strong> dados disponíveis para exportação por 30 dias; após isso, excluídos dos servidores em até 60 dias</li>
+        <li><strong>Dados financeiros e fiscais:</strong> mantidos por 5 anos em conformidade com obrigação legal</li>
+        <li><strong>Logs de acesso:</strong> retidos por 6 meses (Lei nº 12.965/2014 — Marco Civil da Internet)</li>
+      </ul>
+
+      <h2 id="seguranca">7. Segurança dos Dados</h2>
+      <p>Adotamos medidas técnicas e organizacionais para proteger seus dados:</p>
+      <ul>
+        <li>Comunicação exclusivamente via HTTPS (TLS 1.2+)</li>
+        <li>Senhas armazenadas com hash bcrypt pelo Supabase Auth</li>
+        <li>Acesso ao banco de dados restrito a serviços autorizados com chaves de serviço</li>
+        <li>Segredos e credenciais nunca expostos no código-fonte do frontend</li>
+        <li>Monitoramento contínuo de acessos suspeitos</li>
+      </ul>
+      <p>Em caso de incidente de segurança que possa afetar seus dados, notificaremos os titulares e a ANPD no prazo legal de 2 dias úteis.</p>
+
+      <h2 id="cookies">8. Cookies e Armazenamento Local</h2>
+      <p>O EscalaFest utiliza <strong>localStorage</strong> do navegador (não cookies de rastreamento) para:</p>
+      <ul>
+        <li>Manter a sessão autenticada (token JWT do Supabase)</li>
+        <li>Salvar preferências de interface (URL do servidor, configurações visuais)</li>
+      </ul>
+      <p>Não utilizamos cookies de rastreamento de terceiros, pixels de anúncios ou ferramentas de analytics que identifiquem o usuário individualmente.</p>
+
+      <h2 id="direitos">9. Seus Direitos como Titular (Art. 18 da LGPD)</h2>
+      <p>Você tem direito a, a qualquer momento:</p>
+      <ul>
+        <li><strong>Confirmação:</strong> saber se tratamos seus dados pessoais</li>
+        <li><strong>Acesso:</strong> obter uma cópia dos dados que temos sobre você</li>
+        <li><strong>Retificação:</strong> corrigir dados incorretos ou desatualizados</li>
+        <li><strong>Exclusão:</strong> solicitar a eliminação de dados tratados com base em consentimento</li>
+        <li><strong>Portabilidade:</strong> receber seus dados em formato estruturado (CSV/JSON)</li>
+        <li><strong>Oposição:</strong> opor-se ao tratamento baseado em legítimo interesse</li>
+        <li><strong>Revogação do consentimento:</strong> revogar o consentimento a qualquer tempo</li>
+        <li><strong>Informação sobre compartilhamento:</strong> saber com quais parceiros compartilhamos seus dados</li>
+      </ul>
+      <p>Para exercer seus direitos, envie um e-mail para <a href="mailto:biribinhabr2@gmail.com">biribinhabr2@gmail.com</a> com o assunto "Direitos LGPD". Responderemos em até 15 dias úteis.</p>
+
+      <h2 id="menores">10. Menores de Idade</h2>
+      <p>O EscalaFest é destinado exclusivamente a pessoas com 18 anos ou mais. Não coletamos intencionalmente dados de menores. Caso identifiquemos que um usuário é menor de idade, excluiremos seus dados imediatamente.</p>
+
+      <h2 id="alteracoes">11. Alterações nesta Política</h2>
+      <p>Esta política pode ser atualizada periodicamente. Alterações relevantes serão comunicadas por e-mail com antecedência mínima de 15 dias. A versão vigente estará sempre disponível em <a href="/privacidade">/privacidade</a>.</p>
+
+      <h2 id="dpo">12. Encarregado de Dados (DPO) e Contato</h2>
+      <p>Para dúvidas, solicitações ou reclamações relacionadas a privacidade e proteção de dados:</p>
+      <ul>
+        <li><strong>E-mail:</strong> <a href="mailto:biribinhabr2@gmail.com">biribinhabr2@gmail.com</a></li>
+        <li><strong>Formulário:</strong> <a href="/contato">/contato</a></li>
+        <li><strong>ANPD:</strong> caso insatisfeito com nossa resposta, você pode contatar a Autoridade Nacional de Proteção de Dados em <a href="https://www.gov.br/anpd" target="_blank" rel="noopener">gov.br/anpd</a></li>
+      </ul>
+
+    </div>
+  </div>
+</main>
+
+<!-- FOOTER -->
+<footer class="border-t border-slate-800 py-14">
+  <div class="max-w-5xl mx-auto px-5">
+    <div class="grid sm:grid-cols-2 md:grid-cols-4 gap-10 mb-10">
+      <div class="col-span-full md:col-span-1">
+        <img src="/Principal/assets/logo.png" alt="Logo EscalaFest" style="height:32px;object-fit:contain;filter:brightness(0) invert(1);margin-bottom:12px"/>
+        <p class="text-slate-500 text-sm leading-relaxed">Gestão de escalas para equipes de eventos. Simples, rápido e eficiente.</p>
+      </div>
+      <div>
+        <h4 class="font-semibold text-white text-sm mb-4">Produto</h4>
+        <ul class="flex flex-col gap-2.5">
+          <li><a href="/#recursos" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Recursos</a></li>
+          <li><a href="/#precos" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Preços</a></li>
+          <li><a href="/#faq" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">FAQ</a></li>
+          <li><a href="/changelog" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Changelog</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="font-semibold text-white text-sm mb-4">Empresa</h4>
+        <ul class="flex flex-col gap-2.5">
+          <li><a href="/sobre" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Sobre nós</a></li>
+          <li><a href="/blog" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Blog</a></li>
+          <li><a href="/contato" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Contato</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="font-semibold text-white text-sm mb-4">Legal</h4>
+        <ul class="flex flex-col gap-2.5">
+          <li><a href="/privacidade" class="text-teal-400 text-sm font-semibold">Privacidade</a></li>
+          <li><a href="/termos" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Termos de Uso</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="border-t border-slate-800 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <span class="text-slate-500 text-sm">© 2026 EscalaFest. Todos os direitos reservados.</span>
+      <div class="flex items-center gap-5">
+        <a href="#" class="text-slate-500 hover:text-teal-400 transition-colors text-sm">Instagram</a>
+        <a href="#" class="text-slate-500 hover:text-teal-400 transition-colors text-sm">WhatsApp</a>
+        <a href="#" class="text-slate-500 hover:text-teal-400 transition-colors text-sm">LinkedIn</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

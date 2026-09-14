@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Changelog — EscalaFest</title>
+  <meta name="description" content="Histórico de atualizações do EscalaFest: novidades, melhorias e correções."/>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script>if(location.protocol!=='https:'&&location.protocol!=='file:'&&location.hostname!=='localhost'&&location.hostname!=='127.0.0.1'){location.replace('https://'+location.host+location.pathname+location.search);}</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] },
+          colors: {
+            navy: { 950:'#040D1A', 900:'#071225', 800:'#0D1F3C' },
+            teal: { 400:'#2DD4BF', 500:'#14B8A6', 600:'#0D9488' },
+          },
+          animation: { 'fade-up': 'fadeUp .6s ease both' },
+          keyframes: { fadeUp: { '0%':{opacity:0,transform:'translateY(24px)'}, '100%':{opacity:1,transform:'translateY(0)'} } }
+        }
+      }
+    }
+  </script>
+  <style>
+    *{box-sizing:border-box}html{font-family:'Plus Jakarta Sans',sans-serif}
+    .gradient-text{background:linear-gradient(135deg,#2DD4BF 0%,#14B8A6 50%,#0D9488 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .nav-blur{background:rgba(7,18,37,.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(45,212,191,.08)}
+    .btn-cta{background:linear-gradient(135deg,#14B8A6,#0D9488);transition:all .25s ease}
+    .btn-cta:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(20,184,166,.35)}
+    .btn-outline{border:1.5px solid rgba(45,212,191,.35);transition:all .25s ease}
+    .btn-outline:hover{border-color:rgba(45,212,191,.7);background:rgba(45,212,191,.08)}
+    .card-glass{background:rgba(13,31,60,.6);backdrop-filter:blur(12px);border:1px solid rgba(45,212,191,.1)}
+    ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#040D1A}::-webkit-scrollbar-thumb{background:#0D9488;border-radius:99px}
+    .cl-line{position:absolute;left:19px;top:40px;bottom:-24px;width:2px;background:linear-gradient(to bottom,rgba(45,212,191,.3),transparent)}
+    .cl-dot{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;z-index:1}
+    .tag{display:inline-flex;align-items:center;gap:4px;padding:2px 10px;border-radius:99px;font-size:11px;font-weight:700;letter-spacing:.03em}
+    .tag-new{background:rgba(20,184,166,.12);color:#2DD4BF;border:1px solid rgba(45,212,191,.2)}
+    .tag-fix{background:rgba(245,158,11,.1);color:#FBBF24;border:1px solid rgba(251,191,36,.2)}
+    .tag-improve{background:rgba(139,92,246,.1);color:#a78bfa;border:1px solid rgba(167,139,250,.2)}
+  </style>
+</head>
+<body class="bg-navy-950 text-white antialiased overflow-x-hidden">
+
+<!-- NAVBAR -->
+<nav class="fixed top-0 left-0 right-0 z-50 nav-blur">
+  <div class="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
+    <a href="/" class="flex items-center gap-2.5">
+      <div style="background:#fff;border-radius:8px;padding:3px 5px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">
+        <img src="/Principal/assets/logo.png" alt="Logo EscalaFest" style="height:30px;object-fit:contain;display:block"/>
+      </div>
+      <span class="font-extrabold text-lg text-white tracking-tight">EscalaFest</span>
+    </a>
+    <div class="hidden md:flex items-center gap-8">
+      <a href="/#recursos" class="text-sm text-slate-400 hover:text-teal-400 transition-colors font-medium">Recursos</a>
+      <a href="/#precos" class="text-sm text-slate-400 hover:text-teal-400 transition-colors font-medium">Preços</a>
+      <a href="/#faq" class="text-sm text-slate-400 hover:text-teal-400 transition-colors font-medium">FAQ</a>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="/?login=1" class="hidden md:inline-flex btn-outline text-white font-semibold text-sm px-5 py-2.5 rounded-xl">Já sou cliente</a>
+      <a href="/?register=1" class="hidden md:inline-flex btn-cta text-white font-semibold text-sm px-5 py-2.5 rounded-xl">Começar Grátis</a>
+    </div>
+  </div>
+</nav>
+
+<!-- PAGE HEADER -->
+<section class="pt-32 pb-16 px-5 text-center" style="background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(13,148,136,.15) 0%,transparent 70%)">
+  <div class="max-w-3xl mx-auto">
+    <span class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold mb-6" style="background:rgba(20,184,166,.1);border:1px solid rgba(20,184,166,.2);color:#2DD4BF">🚀 Novidades</span>
+    <h1 class="text-4xl md:text-5xl font-extrabold mb-5 leading-tight"><span class="gradient-text">Changelog</span></h1>
+    <p class="text-slate-400 text-lg leading-relaxed">Cada atualização do EscalaFest, do lançamento até hoje.</p>
+  </div>
+</section>
+
+<!-- CONTENT -->
+<main class="max-w-3xl mx-auto px-5 pb-24">
+
+  <!-- v1.3 -->
+  <div class="flex gap-5 mb-2 relative">
+    <div class="cl-line"></div>
+    <div class="cl-dot" style="background:linear-gradient(135deg,#14B8A6,#0D9488);box-shadow:0 0 20px rgba(20,184,166,.4)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg>
+    </div>
+    <div class="flex-1 pb-10">
+      <div class="flex flex-wrap items-center gap-3 mb-1">
+        <span class="text-white font-extrabold text-xl">v1.3</span>
+        <span class="text-slate-500 text-sm">Junho 2026</span>
+        <span class="tag tag-new">✦ Mais recente</span>
+      </div>
+      <h2 class="text-lg font-bold text-white mb-4">Ranking, Relatórios & Logística aprimorada</h2>
+      <div class="card-glass rounded-2xl p-6 space-y-4">
+        <div>
+          <p class="text-xs font-bold text-teal-400 uppercase tracking-widest mb-2">Dashboard</p>
+          <ul class="space-y-2 text-sm text-slate-300">
+            <li class="flex items-start gap-2"><span class="tag tag-new mt-0.5">NOVO</span> Ranking de equipe: "Mais trabalhou no mês" e "Mais feedback dado"</li>
+            <li class="flex items-start gap-2"><span class="tag tag-new mt-0.5">NOVO</span> Botão "↩ Desfazer todos pagos" com confirmação nos relatórios</li>
+            <li class="flex items-start gap-2"><span class="tag tag-new mt-0.5">NOVO</span> Campo <em>tempoMin</em> configurável por nível de bônus (Júnior / Sênior / Master)</li>
+            <li class="flex items-start gap-2"><span class="tag tag-new mt-0.5">NOVO</span> PDF de cachês pendentes com coluna Função e Observação por evento</li>
+            <li class="flex items-start gap-2"><span class="tag tag-new mt-0.5">NOVO</span> Pontos de encontro — aba no CRUD, mesma tabela compartilhada com a Logística</li>
+            <li class="flex items-start gap-2"><span class="tag tag-improve mt-0.5">MELHORIA</span> Funcionário vê somente o ranking de feedback (sem dados salariais)</li>
+          </ul>
+        </div>
+        <div class="border-t border-slate-700/50 pt-4">
+          <p class="text-xs font-bold text-teal-400 uppercase tracking-widest mb-2">Logística</p>
+          <ul class="space-y-2 text-sm text-slate-300">
+            <li class="flex items-start gap-2"><span class="tag tag-improve mt-0.5">MELHORIA</span> KMs contados em ida+volta para rotas com retorno</li>
+            <li class="flex items-start gap-2"><span class="tag tag-improve mt-0.5">MELHORIA</span> Combustível calculado pelo <em>consumo_medio</em> real do veículo</li>
+            <li class="flex items-start gap-2"><span class="tag tag-fix mt-0.5">FIX</span> Taxa de atraso exibe "—" quando não há rotas finalizadas (evita 0% falso)</li>
+          </ul>
+        </div>
+        <div class="border-t border-slate-700/50 pt-4">
+          <p class="text-xs font-bold text-teal-400 uppercase tracking-widest mb-2">Pagamentos</p>
+          <ul class="space-y-2 text-sm text-slate-300">
+            <li class="flex items-start gap-2"><span class="tag tag-new mt-0.5">NOVO</span> Integração com Asaas — PIX (~1%) e cartão (~1,99%)</li>
+            <li class="flex items-start gap-2"><span class="tag tag-new mt-0.5">NOVO</span> Edge Functions <code class="text-xs bg-navy-800 px-1.5 py-0.5 rounded">asaas-checkout</code> e <code class="text-xs bg-navy-800 px-1.5 py-0.5 rounded">asaas-webhook</code></li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- v1.2 -->
+  <div class="flex gap-5 mb-2 relative">
+    <div class="cl-line"></div>
+    <div class="cl-dot" style="background:rgba(13,31,60,.8);border:2px solid rgba(45,212,191,.3)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2DD4BF" stroke-width="2.5"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+    </div>
+    <div class="flex-1 pb-10">
+      <div class="flex flex-wrap items-center gap-3 mb-1">
+        <span class="text-white font-extrabold text-xl">v1.2</span>
+        <span class="text-slate-500 text-sm">Março 2026</span>
+      </div>
+      <h2 class="text-lg font-bold text-white mb-4">Módulo de Logística</h2>
+      <div class="card-glass rounded-2xl p-6 space-y-2">
+        <ul class="space-y-2 text-sm text-slate-300">
+          <li class="flex items-start gap-2"><span class="tag tag-new mt-0.5">NOVO</span> Painel de logística — despacho de motoristas e controle de rotas</li>
+          <li class="flex items-start gap-2"><span class="tag tag-new mt-0.5">NOVO</span> App do motorista — acompanhamento de rota em tempo real</li>
+          <li class="flex items-start gap-2"><span class="tag tag-new mt-0.5">NOVO</span> Gestão de veículos com consumo médio e cálculo de combustível</li>
+          <li class="flex items-start gap-2"><span class="tag tag-new mt-0.5">NOVO</span> Pontos de encontro com localização e capacidade</li>
+          <li class="flex items-start gap-2"><span class="tag tag-new mt-0.5">NOVO</span> Dashboard de logística: rotas do dia, KMs, taxa de atraso</li>
+          <li class="flex items-start gap-2"><span class="tag tag-improve mt-0.5">MELHORIA</span> Backend Railway com servidor Node.js de despacho em tempo real</li>
+          <li class="flex items-start gap-2"><span class="tag tag-improve mt-0.5">MELHORIA</span> Migração automática de URLs localhost → Railway em todos os apps</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- v1.1 -->
+  <div class="flex gap-5 mb-2 relative">
+    <div class="cl-line"></div>
+    <div class="cl-dot" style="background:rgba(13,31,60,.8);border:2px solid rgba(45,212,191,.3)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2DD4BF" stroke-width="2.5"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+    </div>
+    <div class="flex-1 pb-10">
+      <div class="flex flex-wrap items-center gap-3 mb-1">
+        <span class="text-white font-extrabold text-xl">v1.1</span>
+        <span class="text-slate-500 text-sm">Novembro 2025</span>
+      </div>
+      <h2 class="text-lg font-bold text-white mb-4">Sistema de Bônus & Equipe</h2>
+      <div class="card-glass rounded-2xl p-6 space-y-2">
+        <ul class="space-y-2 text-sm text-slate-300">
+          <li class="flex items-start gap-2"><span class="tag tag-new mt-0.5">NOVO</span> Sistema de bônus automático por nível (Júnior, Sênior, Master)</li>
+          <li class="flex items-start gap-2"><span class="tag tag-new mt-0.5">NOVO</span> Campos de <em>Função</em> e <em>Observação</em> por membro da equipe no evento</li>
+          <li class="flex items-start gap-2"><span class="tag tag-new mt-0.5">NOVO</span> Feedback de animadores — registro e histórico</li>
+          <li class="flex items-start gap-2"><span class="tag tag-new mt-0.5">NOVO</span> Modo secretária — acesso controlado para assistentes administrativos</li>
+          <li class="flex items-start gap-2"><span class="tag tag-new mt-0.5">NOVO</span> Relatório de cachês em PDF por evento ou por período</li>
+          <li class="flex items-start gap-2"><span class="tag tag-improve mt-0.5">MELHORIA</span> Carregamento mobile: timeout de 40s + flag <code class="text-xs bg-navy-800 px-1.5 py-0.5 rounded">_sfAppReady</code> para evitar falsos erros</li>
+          <li class="flex items-start gap-2"><span class="tag tag-fix mt-0.5">FIX</span> Bônus automático com duração mínima corretamente ignorado quando sem nível</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- v1.0 -->
+  <div class="flex gap-5 mb-2 relative">
+    <div class="cl-dot" style="background:rgba(13,31,60,.8);border:2px solid rgba(45,212,191,.3)">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2DD4BF" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+    </div>
+    <div class="flex-1 pb-4">
+      <div class="flex flex-wrap items-center gap-3 mb-1">
+        <span class="text-white font-extrabold text-xl">v1.0</span>
+        <span class="text-slate-500 text-sm">Agosto 2025</span>
+        <span class="tag" style="background:rgba(99,102,241,.1);color:#a5b4fc;border:1px solid rgba(165,180,252,.2)">🎉 Lançamento</span>
+      </div>
+      <h2 class="text-lg font-bold text-white mb-4">Lançamento do EscalaFest</h2>
+      <div class="card-glass rounded-2xl p-6 space-y-2">
+        <ul class="space-y-2 text-sm text-slate-300">
+          <li class="flex items-start gap-2"><span class="tag tag-new mt-0.5">NOVO</span> Dashboard de gestão de eventos e escalas</li>
+          <li class="flex items-start gap-2"><span class="tag tag-new mt-0.5">NOVO</span> Cadastro de freelancers/animadores com perfil completo</li>
+          <li class="flex items-start gap-2"><span class="tag tag-new mt-0.5">NOVO</span> Criação de eventos com data, local, horário e equipe</li>
+          <li class="flex items-start gap-2"><span class="tag tag-new mt-0.5">NOVO</span> Cálculo automático de cachê base por evento</li>
+          <li class="flex items-start gap-2"><span class="tag tag-new mt-0.5">NOVO</span> Controle de pagamentos — marcar como pago por evento e por membro</li>
+          <li class="flex items-start gap-2"><span class="tag tag-new mt-0.5">NOVO</span> Notificações automáticas por WhatsApp via QR Code</li>
+          <li class="flex items-start gap-2"><span class="tag tag-new mt-0.5">NOVO</span> Autenticação segura via Supabase Auth</li>
+          <li class="flex items-start gap-2"><span class="tag tag-new mt-0.5">NOVO</span> Planos Amador, Pequena Empresa e Grande Empresa</li>
+          <li class="flex items-start gap-2"><span class="tag tag-new mt-0.5">NOVO</span> Trial gratuito de 7 dias — sem cartão</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="mt-12 rounded-2xl p-8 text-center" style="background:linear-gradient(135deg,rgba(13,148,136,.2),rgba(13,148,136,.05));border:1px solid rgba(45,212,191,.15)">
+    <h3 class="text-xl font-bold text-white mb-2">Tem uma sugestão?</h3>
+    <p class="text-slate-400 text-sm mb-5">Cada atualização do EscalaFest nasce de feedback real de usuários.</p>
+    <a href="/contato" class="btn-cta text-white font-semibold px-6 py-3 rounded-xl inline-flex items-center gap-2">
+      Enviar sugestão →
+    </a>
+  </div>
+
+</main>
+
+<!-- FOOTER -->
+<footer class="border-t border-slate-800 py-14">
+  <div class="max-w-5xl mx-auto px-5">
+    <div class="grid sm:grid-cols-2 md:grid-cols-4 gap-10 mb-10">
+      <div class="col-span-full md:col-span-1">
+        <img src="/Principal/assets/logo.png" alt="Logo EscalaFest" style="height:32px;object-fit:contain;filter:brightness(0) invert(1);margin-bottom:12px"/>
+        <p class="text-slate-500 text-sm leading-relaxed">Gestão de escalas para equipes de eventos. Simples, rápido e eficiente.</p>
+      </div>
+      <div>
+        <h4 class="font-semibold text-white text-sm mb-4">Produto</h4>
+        <ul class="flex flex-col gap-2.5">
+          <li><a href="/#recursos" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Recursos</a></li>
+          <li><a href="/#precos" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Preços</a></li>
+          <li><a href="/#faq" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">FAQ</a></li>
+          <li><a href="/changelog" class="text-teal-400 text-sm font-semibold">Changelog</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="font-semibold text-white text-sm mb-4">Empresa</h4>
+        <ul class="flex flex-col gap-2.5">
+          <li><a href="/sobre" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Sobre nós</a></li>
+          <li><a href="/blog" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Blog</a></li>
+          <li><a href="/contato" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Contato</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="font-semibold text-white text-sm mb-4">Legal</h4>
+        <ul class="flex flex-col gap-2.5">
+          <li><a href="/privacidade" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Privacidade</a></li>
+          <li><a href="/termos" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Termos de Uso</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="border-t border-slate-800 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <span class="text-slate-500 text-sm">© 2026 EscalaFest. Todos os direitos reservados.</span>
+      <div class="flex items-center gap-5">
+        <a href="#" class="text-slate-500 hover:text-teal-400 transition-colors text-sm">Instagram</a>
+        <a href="#" class="text-slate-500 hover:text-teal-400 transition-colors text-sm">WhatsApp</a>
+        <a href="#" class="text-slate-500 hover:text-teal-400 transition-colors text-sm">LinkedIn</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

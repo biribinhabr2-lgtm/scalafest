@@ -130,10 +130,37 @@ Após abrir o checkout, polling a cada 3s (máx 40 tentativas) na tabela `sf_per
 | Tabela | Uso |
 |---|---|
 | `sf_perfis` | Perfil do usuário, plano ativo, datas, **`nivel_acesso`** |
-| `sf_dados` | Blob JSON por `(user_id, tipo)` — armazena freelancers, eventos, etc. |
+| `sf_dados` | Blob JSON por `(user_id, tipo)` — freelancers, disponibilidade, confirmações, etc. |
+| `events` | **Eventos** (migrado de sf_dados). PK uuid. Coluna `legacy_id` (TEXT UNIQUE) guarda o id antigo. |
+| `event_team` | Membros escalados por evento. FK `event_id → events.id` ON DELETE CASCADE. |
 | `sf_pontos_encontro` | Pontos de encontro (compartilhado Dashboard ↔ Logística) |
 | `sf_veiculos` | Veículos (inclui `consumo_medio` km/L) |
 | `wa_sessions` | Sessões WhatsApp (SQL precisa ser rodado) |
+
+### `events` — colunas relevantes
+| Coluna | Tipo | Obs |
+|---|---|---|
+| `id` | UUID PK | gerado pelo banco |
+| `legacy_id` | TEXT UNIQUE | id antigo (numérico ou UUID GCal) |
+| `tenant_id` | UUID | = admin `user.id` (isolamento de tenant) |
+| `google_event_id` | TEXT UNIQUE | id do Google Calendar (null se manual) |
+| `google_calendar_synced` | BOOLEAN | true = importado do GCal |
+
+### Serviço de eventos — `evSvc` (frontend)
+IIFE global definida após `crossLoad`. Operações:
+- `evSvc.list(tenantId, opts?)` — lista com filtros opcionais (from, to, status)
+- `evSvc.get(tenantId, id)` — busca por UUID ou legacy_id
+- `evSvc.getByGcalId(tenantId, googleEventId)` — busca por google_event_id
+- `evSvc.create(tenantId, data)` — cria evento + equipe, retorna objeto completo
+- `evSvc.update(tenantId, id, patch)` — atualiza campos, retorna objeto atualizado
+- `evSvc.remove(tenantId, id)` — deleta (internamente insere google_calendar_ignored se synced)
+- `evSvc.duplicate(tenantId, id)` — duplica evento + equipe + event_items
+- `evSvc.upsertMember / patchMember / removeMember` — gerenciam event_team
+- `evSvc.deleteAll(tenantId)` — usado em resetarDados
+
+Helpers globais:
+- `getConfAdmin(cmap, fid, ev)` — busca confirmação no confirmacoesMap por uuid ou legacy_id
+- `getConfFl(cfms, ev)` — busca confirmação (freelancer) por uuid ou legacy_id
 
 ### `sf_perfis` — colunas relevantes
 
@@ -155,7 +182,7 @@ Após abrir o checkout, polling a cada 3s (máx 40 tentativas) na tabela `sf_per
 
 ```
 admin           → acesso total (sempre)
-└── gestao      → funcionário com nivel_acesso='gestao' (vê Tarefas, Checklist, Materiais, Figurino, Anexos, Minha Escala, PDF Completo)
+└── gestao      → funcionário com nivel_acesso='gestao' (vê Checklist, Materiais, Figurino, Anexos, Minha Escala, PDF Completo)
     └── freelancer → funcionário comum (disponibilidade, eventos, ganhos, treinos, feedback, ranking)
 ```
 
@@ -209,7 +236,6 @@ Para o admin, o valor é sempre `"admin"` (derivado de `perfil.role`).
 ### Tabs de gestão no AppFuncionario
 
 Tabs visíveis apenas para `isGestao`:
-- `tarefas` — Tarefas (placeholder "em breve")
 - `minha_escala` — Minha Escala (placeholder "em breve")
 
 `useEffect` no `AppFuncionario` redireciona para `disponibilidade` se tab restrita for acessada sem permissão.
@@ -232,6 +258,11 @@ Tabs visíveis apenas para `isGestao`:
 - **Bonificação** — campo `tempoMin` por nível (antes hardcoded 180min)
 - **Pontos de Encontro** — aba no CRUD do Dashboard que lê/escreve em `sf_pontos_encontro` (mesma tabela que a Logística usa)
 - **PDF Cachês Pendentes** — gerado pelo modal inline (não pela função `gerarPdfCaches`); agora inclui `🎭 Função` e `📝 Observação` por evento
+- **Biblioteca de Kits** — aba `📦 Modelos` na sidebar (admin e gestão). Kits nomeados (ex: "Animação Gui", "Kit Cinderela") contendo múltiplos itens, cada um com foto opcional. SQL em `supabase/sql/template_kits.sql`. Bucket `catalog-images`. Componentes: `AbaModelos`, `PickerModelos`, `loadKitsCached` (cache 5min), `compressImage`.
+  - `AbaModelos`: grid de cards de kit → clicar abre detail view com lista de itens (CRUD + reordenar ↑↓). Modal separado para criar/editar kit e para criar/editar item.
+  - `PickerModelos`: mostra kits expansíveis; marcar kit = marcar todos os itens; pode desmarcar itens individuais. Insere com `kit_item_id`.
+  - `AbaEventItems`: "📦 Do modelo" abre `PickerModelos`; imagem via `kit_item_id → template_kit_items.image_path`.
+  - PDF Completo: imagem carregada via `kit_item_id` na tabela `template_kit_items`.
 
 ### Logística
 - **Railway URL** — padrão correto com migração de localhost
@@ -335,6 +366,25 @@ supabase secrets set ASAAS_SANDBOX=false
 
 ## Pendências
 
+### Migração events (NOVA — executar antes de usar o novo código)
+- [ ] **events_table** — rodar `supabase/sql/events_table.sql` no Supabase SQL Editor (cria `events`, `event_team`, `get_tenant_id()`, RLS, índices). Pré-requisito: `is_gestao()` já deve existir.
+- [ ] **migrate_eventos** — rodar `node scripts/migrate_eventos_to_table.js --dry-run` primeiro, depois sem `--dry-run`. Migra sf_dados → events + event_team e remapeia event_items/event_attachments.
+- [ ] **google_calendar_ignored** — confirmar que a tabela existe com colunas `tenant_id` e `google_event_id` (usada por evSvc.remove e syncCalendarDoBrowser).
+
+### Catálogo de serviços (nova funcionalidade)
+- [ ] **services** — rodar `supabase/sql/services.sql` no Supabase SQL Editor (cria `services`, `service_keywords`, `service_roles`, RLS, trigger). Pré-requisito: `is_gestao()`, `get_tenant_id()`, `_sf_set_updated_at()` já existem.
+- [ ] **services_seed** — rodar o **bloco PREVIEW** de `supabase/sql/services_seed.sql` primeiro (só SELECT), revisar lista, depois rodar o **bloco INSERT** (DO $$). Pré-requisito: tabela `events` já populada.
+
+### WhatsApp backend (corrigido — requer redeploy Railway)
+- [x] **dados.repo.js** — `loadEventos()` agora lê da tabela `events` + `event_team` (com fallback para `sf_dados` se a tabela ainda não existir). Corrige bug de eventos excluídos ainda sendo enviados.
+- [x] **escala.service.js** — grava 1 registro de auditoria por funcionário em `sf_envios_wa` após envio; atualiza `event_team.wa_notificado_em` para marcar notificados.
+- [ ] **event_team_wa_notificado** — rodar `supabase/sql/event_team_wa_notificado.sql` no Supabase SQL Editor para adicionar coluna `wa_notificado_em TIMESTAMPTZ` à `event_team`.
+- [ ] **Railway redeploy** — `whatsapp-server/src/repositories/dados.repo.js` e `whatsapp-server/src/services/escala.service.js` alterados.
+
+### Outras pendências
+- [ ] **template_kits** — rodar `supabase/sql/template_kits.sql` no Supabase SQL Editor para criar `template_kits` + `template_kit_items` + coluna `kit_item_id` em `event_items` + policies de Storage + migração de `item_templates` (se houver dados)
+- [ ] **catalog-images bucket** — criar bucket no Supabase Storage: nome `catalog-images`, privado, máx 5MB, tipos image/jpeg + image/png + image/webp
+- [ ] **gestao_tenant_fix** — rodar `supabase/sql/gestao_tenant_fix.sql` no Supabase SQL Editor para habilitar gestão a ver/editar eventos e event_items com isolamento de tenant (get_tenant_id + policies)
 - [ ] **notifications** — rodar `supabase/sql/notifications.sql` no Supabase SQL Editor para criar a tabela de notificações in-app
 - [ ] **event_items** — rodar `supabase/sql/event_items.sql` no Supabase SQL Editor para criar a tabela de Checklist/Material/Figurino
 - [ ] **Asaas** — criar conta, obter API key, deploy das edge functions, configurar webhook no painel Asaas

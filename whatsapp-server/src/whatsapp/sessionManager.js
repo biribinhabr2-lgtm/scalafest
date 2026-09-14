@@ -14,6 +14,17 @@ const {
   DisconnectReason,
   fetchLatestBaileysVersion,
 } = require('@whiskeysockets/baileys');
+
+// Desconexões que indicam sessão inválida — não adianta reconectar.
+// O admin precisa escanear um novo QR code.
+const RAZOES_TERMINAIS = new Set([
+  DisconnectReason.loggedOut,           // 401 — deslogado pelo celular
+  DisconnectReason.badSession,          // 500 — credenciais corrompidas
+  DisconnectReason.connectionReplaced,  // 440 — outra instância tomou a sessão
+  DisconnectReason.multideviceMismatch, // 411 — incompatibilidade multi-device
+]);
+
+const MAX_RETRIES = 5;
 const QRCode = require('qrcode');
 const pino   = require('pino');
 
@@ -142,24 +153,40 @@ async function createSession(adminId) {
     if (connection === 'close') {
       sess.connected = false;
       sess.phone     = null;
-      const code      = lastDisconnect?.error?.output?.statusCode;
-      const loggedOut = code === DisconnectReason.loggedOut;
+      const code = lastDisconnect?.error?.output?.statusCode;
 
       console.log(`[WA][${adminId}] Conexão encerrada — código: ${code}`);
 
-      if (loggedOut) {
-        // Usuário desconectou no celular — limpa auth do Supabase
-        console.log(`[WA][${adminId}] Sessão revogada. Admin deve reconectar via QR.`);
+      if (RAZOES_TERMINAIS.has(code)) {
+        // Sessão inválida — reconectar automaticamente não adianta.
+        // Admin precisa escanear novo QR.
+        const motivo =
+          code === DisconnectReason.connectionReplaced  ? 'sessão substituída por outra instância' :
+          code === DisconnectReason.badSession          ? 'sessão corrompida'                       :
+          code === DisconnectReason.multideviceMismatch ? 'incompatibilidade multi-device'          :
+                                                          'deslogado pelo celular';
+        console.log(`[WA][${adminId}] Sessão encerrada (${motivo}). Limpando credenciais — reconexão exige novo QR.`);
         await clearAuthState(adminId);
         sessions.delete(adminId);
-      } else {
-        // Falha de rede — reconecta com backoff exponencial (máx 60 s)
-        sess.retryCount += 1;
-        const delay = Math.min(5_000 * Math.pow(1.5, sess.retryCount - 1), 60_000);
-        console.log(`[WA][${adminId}] Reconectando em ${Math.round(delay / 1000)}s (tentativa ${sess.retryCount})...`);
-        sess.connecting = true;
-        setTimeout(() => createSession(adminId), delay);
+        return;
       }
+
+      // Falha de rede — reconecta com backoff exponencial (máx 60 s)
+      sess.retryCount += 1;
+
+      if (sess.retryCount > MAX_RETRIES) {
+        console.log(`[WA][${adminId}] ${MAX_RETRIES} tentativas sem sucesso. Sessão marcada como desconectada — clique em Reconectar no painel para tentar novamente.`);
+        // Mantém sess no Map (sem limpar auth) para que o admin possa
+        // reconectar manualmente sem precisar de novo QR, caso as credenciais
+        // ainda sejam válidas e o problema seja só rede.
+        sess.connecting = false;
+        return;
+      }
+
+      const delay = Math.min(5_000 * Math.pow(1.5, sess.retryCount - 1), 60_000);
+      console.log(`[WA][${adminId}] Reconectando em ${Math.round(delay / 1000)}s (tentativa ${sess.retryCount}/${MAX_RETRIES})...`);
+      sess.connecting = true;
+      setTimeout(() => createSession(adminId), delay);
     }
   });
 

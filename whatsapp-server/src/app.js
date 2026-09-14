@@ -7,18 +7,32 @@ const uiRoutes = require('./routes/ui.routes');
 
 const app = express();
 
-// ─── CORS — aberto para qualquer origem ───────────────────────────────────────
-// A segurança é feita pelo API_SECRET no header x-api-secret, não pelo CORS.
-// Precisamos aceitar qualquer origem porque o túnel (localtunnel/ngrok) gera
-// URLs dinâmicas e o Dashboard pode estar em qualquer domínio.
-app.use(cors({
-  origin: '*',
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'x-api-secret', 'x-admin-id', 'x-motorista-id', 'bypass-tunnel-reminder'],
-}));
+// ─── CORS ─────────────────────────────────────────────────────────────────────
+const ALLOWED_ORIGINS = [
+  'https://escalafesta.netlify.app',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://localhost:3001',
+];
 
-// Garante resposta a preflight OPTIONS em todas as rotas
-app.options('*', cors());
+const corsOptions = {
+  origin: (origin, callback) => {
+    // permite requests sem origin (curl, healthchecks, Railway internal)
+    if (!origin || ALLOWED_ORIGINS.includes(origin)) return callback(null, true);
+    return callback(new Error('CORS: origin não permitida'));
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: [
+    'Content-Type', 'Authorization', 'apikey',
+    'x-api-secret', 'x-admin-id', 'x-motorista-id', 'bypass-tunnel-reminder',
+  ],
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
+
+// Garante resposta a preflight OPTIONS em todas as rotas ANTES do auth middleware
+app.options('*', cors(corsOptions));
 
 // ─── Body parser ──────────────────────────────────────────────────────────────
 app.use(express.json());

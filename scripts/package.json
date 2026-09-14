@@ -1,0 +1,16 @@
+{
+  "name": "escalafest-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Utility scripts — never deployed",
+  "type": "commonjs",
+  "scripts": {
+    "migrate:dry":    "node migrate-eventos.js",
+    "migrate:apply":  "node migrate-eventos.js --apply",
+    "recover:dry":    "node recover-eventos.js --from-feedbacks",
+    "recover:apply":  "node recover-eventos.js --from-feedbacks --apply"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.46.0"
+  }
+}

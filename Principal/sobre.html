@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sobre o EscalaFest — Gestão de Escalas para Equipes de Eventos</title>
+  <meta name="description" content="Conheça a história e a missão do EscalaFest: o sistema que nasceu para acabar com o caos das planilhas em eventos."/>
+  <link rel="icon" type="image/x-icon" href="/favicon.ico"/>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <script>if(location.protocol!=='https:'&&location.protocol!=='file:'&&location.hostname!=='localhost'&&location.hostname!=='127.0.0.1'){location.replace('https://'+location.host+location.pathname+location.search);}</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] },
+          colors: {
+            navy: { 950:'#040D1A', 900:'#071225', 800:'#0D1F3C', 700:'#152D52', 600:'#1E3A6A' },
+            teal: { 400:'#2DD4BF', 500:'#14B8A6', 600:'#0D9488', 700:'#0C6E7E', 800:'#0A5A68' },
+          },
+          animation: { 'fade-up': 'fadeUp .6s ease both' },
+          keyframes: { fadeUp: { '0%': { opacity:0, transform:'translateY(24px)' }, '100%': { opacity:1, transform:'translateY(0)' } } }
+        }
+      }
+    }
+  </script>
+  <style>
+    *{box-sizing:border-box}html{font-family:'Plus Jakarta Sans',sans-serif}
+    .gradient-text{background:linear-gradient(135deg,#2DD4BF 0%,#14B8A6 50%,#0D9488 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+    .nav-blur{background:rgba(7,18,37,.85);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border-bottom:1px solid rgba(45,212,191,.08)}
+    .btn-cta{background:linear-gradient(135deg,#14B8A6,#0D9488);transition:all .25s ease}
+    .btn-cta:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(20,184,166,.35)}
+    .btn-outline{border:1.5px solid rgba(45,212,191,.35);transition:all .25s ease}
+    .btn-outline:hover{border-color:rgba(45,212,191,.7);background:rgba(45,212,191,.08);transform:translateY(-2px)}
+    .card-glass{background:rgba(13,31,60,.6);backdrop-filter:blur(12px);border:1px solid rgba(45,212,191,.1)}
+    ::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#040D1A}::-webkit-scrollbar-thumb{background:#0D9488;border-radius:99px}
+  </style>
+</head>
+<body class="bg-navy-950 text-white antialiased overflow-x-hidden">
+
+<!-- NAVBAR -->
+<nav id="navbar" class="fixed top-0 left-0 right-0 z-50 nav-blur">
+  <div class="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
+    <a href="/" class="flex items-center gap-2.5">
+      <div style="background:#fff;border-radius:8px;padding:3px 5px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0">
+        <img src="/Principal/assets/logo.png" alt="Logo EscalaFest" style="height:30px;object-fit:contain;display:block"/>
+      </div>
+      <span class="font-extrabold text-lg text-white tracking-tight">EscalaFest</span>
+    </a>
+    <div class="hidden md:flex items-center gap-8">
+      <a href="/#recursos" class="text-sm text-slate-400 hover:text-teal-400 transition-colors font-medium">Recursos</a>
+      <a href="/#precos" class="text-sm text-slate-400 hover:text-teal-400 transition-colors font-medium">Preços</a>
+      <a href="/#faq" class="text-sm text-slate-400 hover:text-teal-400 transition-colors font-medium">FAQ</a>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="/?login=1" class="hidden md:inline-flex btn-outline text-white font-semibold text-sm px-5 py-2.5 rounded-xl items-center gap-2">Já sou cliente</a>
+      <a href="/?register=1" class="hidden md:inline-flex btn-cta text-white font-semibold text-sm px-5 py-2.5 rounded-xl">Começar Grátis</a>
+    </div>
+  </div>
+</nav>
+
+<!-- PAGE HEADER -->
+<section class="pt-32 pb-16 px-5 text-center" style="background:radial-gradient(ellipse 80% 60% at 50% 0%,rgba(13,148,136,.15) 0%,transparent 70%)">
+  <div class="max-w-3xl mx-auto">
+    <span class="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full text-xs font-bold mb-6" style="background:rgba(20,184,166,.1);border:1px solid rgba(20,184,166,.2);color:#2DD4BF">🎭 Nossa História</span>
+    <h1 class="text-4xl md:text-5xl font-extrabold mb-5 leading-tight">Sobre o <span class="gradient-text">EscalaFest</span></h1>
+    <p class="text-slate-400 text-lg leading-relaxed">Nascemos do caos real de quem gerencia equipes de eventos — e criamos a solução que gostaríamos de ter tido.</p>
+  </div>
+</section>
+
+<!-- CONTENT -->
+<main class="max-w-4xl mx-auto px-5 pb-24">
+
+  <!-- Missão -->
+  <section class="mb-16">
+    <div class="card-glass rounded-2xl p-8 md:p-10">
+      <div class="flex items-center gap-3 mb-5">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style="background:rgba(20,184,166,.15)">🎯</div>
+        <h2 class="text-2xl font-bold text-white">Nossa Missão</h2>
+      </div>
+      <p class="text-slate-300 text-lg leading-relaxed mb-4">Eliminar o caos de planilhas, grupos de WhatsApp e ligações de última hora na gestão de equipes de eventos.</p>
+      <p class="text-slate-400 leading-relaxed">Acreditamos que animadores, produtores e coordenadores de eventos merecem uma ferramenta profissional — simples o suficiente para usar no celular às 22h antes de um evento, e poderosa o suficiente para crescer junto com o negócio.</p>
+    </div>
+  </section>
+
+  <!-- História -->
+  <section class="mb-16">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style="background:rgba(20,184,166,.15)">📖</div>
+      <h2 class="text-2xl font-bold text-white">Como surgiu</h2>
+    </div>
+    <div class="space-y-6 text-slate-300 leading-relaxed">
+      <p>O EscalaFest nasceu de uma frustração real. Gerenciar uma equipe de animadores significava: planilhas do Excel que ninguém atualizava, grupos de WhatsApp onde as confirmações se perdiam entre figurinhas, e ligações frenéticas às 23h para confirmar quem trabalharia no evento do dia seguinte.</p>
+      <p>Em 2024, decidimos resolver o problema de vez. A ideia era simples: um sistema que centralizasse escalas, cachês, feedbacks e logística em um único lugar — acessível do celular, sem treinamento técnico.</p>
+      <p>Hoje o EscalaFest é usado por equipes de eventos em todo o Brasil, do animador solo ao produtor com dezenas de freelancers. Cada funcionalidade foi construída com base em dor real de quem vive o mercado de eventos.</p>
+    </div>
+  </section>
+
+  <!-- Valores -->
+  <section class="mb-16">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="w-10 h-10 rounded-xl flex items-center justify-center text-xl" style="background:rgba(20,184,166,.15)">✨</div>
+      <h2 class="text-2xl font-bold text-white">O que nos guia</h2>
+    </div>
+    <div class="grid md:grid-cols-3 gap-5">
+      <div class="card-glass rounded-2xl p-6">
+        <div class="text-3xl mb-3">🎪</div>
+        <h3 class="font-bold text-white mb-2">Feito para eventos</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">Não somos um software genérico adaptado. Cada detalhe foi pensado para a realidade das equipes de animação e produção de eventos.</p>
+      </div>
+      <div class="card-glass rounded-2xl p-6">
+        <div class="text-3xl mb-3">📱</div>
+        <h3 class="font-bold text-white mb-2">Mobile primeiro</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">A maioria das decisões acontece no celular, em pé, entre um evento e outro. O EscalaFest funciona perfeitamente nessa realidade.</p>
+      </div>
+      <div class="card-glass rounded-2xl p-6">
+        <div class="text-3xl mb-3">🔒</div>
+        <h3 class="font-bold text-white mb-2">Privacidade séria</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">Seus dados e os da sua equipe ficam protegidos. Somos 100% compatíveis com a LGPD e nunca vendemos informações de usuários.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Contato -->
+  <section>
+    <div class="card-glass rounded-2xl p-8 md:p-10 text-center">
+      <div class="text-4xl mb-4">👋</div>
+      <h2 class="text-2xl font-bold text-white mb-3">Fale com a gente</h2>
+      <p class="text-slate-400 mb-6 leading-relaxed">Tem uma dúvida, sugestão ou quer conhecer o sistema? Ficaremos felizes em conversar.</p>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <a href="mailto:biribinhabr2@gmail.com" class="btn-cta text-white font-semibold px-6 py-3 rounded-xl inline-flex items-center gap-2">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 7l-10 7L2 7"/></svg>
+          biribinhabr2@gmail.com
+        </a>
+        <a href="/contato" class="btn-outline text-white font-semibold px-6 py-3 rounded-xl inline-flex items-center gap-2">
+          Formulário de contato →
+        </a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- FOOTER -->
+<footer class="border-t border-slate-800 py-14">
+  <div class="max-w-5xl mx-auto px-5">
+    <div class="grid sm:grid-cols-2 md:grid-cols-4 gap-10 mb-10">
+      <div class="col-span-full md:col-span-1">
+        <div class="flex items-center gap-2 mb-3">
+          <img src="/Principal/assets/logo.png" alt="Logo EscalaFest" style="height:32px;object-fit:contain;filter:brightness(0) invert(1)"/>
+        </div>
+        <p class="text-slate-500 text-sm leading-relaxed">Gestão de escalas para equipes de eventos. Simples, rápido e eficiente.</p>
+      </div>
+      <div>
+        <h4 class="font-semibold text-white text-sm mb-4">Produto</h4>
+        <ul class="flex flex-col gap-2.5">
+          <li><a href="/#recursos" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Recursos</a></li>
+          <li><a href="/#precos" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Preços</a></li>
+          <li><a href="/#faq" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">FAQ</a></li>
+          <li><a href="/changelog" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Changelog</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="font-semibold text-white text-sm mb-4">Empresa</h4>
+        <ul class="flex flex-col gap-2.5">
+          <li><a href="/sobre" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Sobre nós</a></li>
+          <li><a href="/blog" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Blog</a></li>
+          <li><a href="/contato" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Contato</a></li>
+        </ul>
+      </div>
+      <div>
+        <h4 class="font-semibold text-white text-sm mb-4">Legal</h4>
+        <ul class="flex flex-col gap-2.5">
+          <li><a href="/privacidade" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Privacidade</a></li>
+          <li><a href="/termos" class="text-slate-400 text-sm hover:text-teal-400 transition-colors">Termos de Uso</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="border-t border-slate-800 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <span class="text-slate-500 text-sm">© 2026 EscalaFest. Todos os direitos reservados.</span>
+      <div class="flex items-center gap-5">
+        <a href="#" class="text-slate-500 hover:text-teal-400 transition-colors text-sm">Instagram</a>
+        <a href="#" class="text-slate-500 hover:text-teal-400 transition-colors text-sm">WhatsApp</a>
+        <a href="#" class="text-slate-500 hover:text-teal-400 transition-colors text-sm">LinkedIn</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

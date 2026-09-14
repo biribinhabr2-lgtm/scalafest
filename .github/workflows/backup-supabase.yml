@@ -1,0 +1,51 @@
+name: Backup Supabase
+
+on:
+  schedule:
+    # 06:00 UTC = 03:00 America/Sao_Paulo (BRT, UTC-3)
+    - cron: "0 6 * * *"
+  workflow_dispatch: # permite rodar manualmente
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Instalar cliente PostgreSQL
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Verificar pg_dump
+        run: pg_dump --version
+
+      - name: Dump do banco Supabase
+        env:
+          PGPASSWORD: "" # não usado — a senha está embutida na URL
+        run: |
+          TIMESTAMP=$(date -u +"%Y%m%d_%H%M%S")
+          DUMP_FILE="escalafest_${TIMESTAMP}.sql"
+          pg_dump \
+            --no-password \
+            --format=plain \
+            --no-owner \
+            --no-acl \
+            "${{ secrets.SUPABASE_DB_URL }}" \
+            > "${DUMP_FILE}"
+          gzip "${DUMP_FILE}"
+          echo "DUMP_FILE=${DUMP_FILE}.gz" >> "$GITHUB_ENV"
+          echo "TIMESTAMP=${TIMESTAMP}" >> "$GITHUB_ENV"
+
+      - name: Fazer upload do artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: "db-backup-${{ env.TIMESTAMP }}"
+          path: "escalafest_${{ env.TIMESTAMP }}.sql.gz"
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Reportar sucesso
+        run: |
+          SIZE=$(du -sh "escalafest_${{ env.TIMESTAMP }}.sql.gz" | cut -f1)
+          echo "✅ Backup concluído: escalafest_${{ env.TIMESTAMP }}.sql.gz (${SIZE})"
