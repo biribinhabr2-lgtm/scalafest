@@ -94,13 +94,26 @@ async function getGrupos(req, res) {
       return res.status(503).json({ error: 'WhatsApp não conectado.' });
     }
 
-    const grupos = await sess.sock.groupFetchAllParticipating();
-    const lista  = Object.entries(grupos)
+    // Timeout de 15s — groupFetchAllParticipating pode travar logo após conectar
+    const grupos = await Promise.race([
+      sess.sock.groupFetchAllParticipating(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout ao buscar grupos (sessão ainda sincronizando)')), 15000)
+      ),
+    ]);
+
+    const lista = Object.entries(grupos)
       .map(([jid, g]) => ({ jid, nome: g.subject || jid }))
       .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 
     res.json(lista);
   } catch (err) {
+    // Retorna array vazio com status 200 se apenas os grupos não carregaram,
+    // para que o Dashboard saiba que está conectado mas aguardando sincronização.
+    const isTimeout = err.message?.includes('Timeout');
+    if (isTimeout) {
+      return res.json([]);
+    }
     res.status(500).json({ error: err.message });
   }
 }
