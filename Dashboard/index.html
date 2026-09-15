@@ -2617,6 +2617,7 @@ function PainelSugestaoEscala({loading,data,erro,onRetry,sel,setSel,expandido,se
   );
   if(!data)return null;
   const vagas=data.vagas||[];
+  const diag=data._diag||null;
   const jaNoTime=fid=>(ev.equipe||[]).some(m=>String(m.freelancerId)===String(fid));
   const temParaAplicar=Object.entries(sel).some(([,fid])=>!jaNoTime(fid));
   return(
@@ -2628,7 +2629,30 @@ function PainelSugestaoEscala({loading,data,erro,onRetry,sel,setSel,expandido,se
         </span>
         <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:"var(--text3)",fontSize:16,padding:0,lineHeight:1}}>×</button>
       </div>
-      {vagas.length===0&&<div style={{fontSize:12,color:"var(--text3)",textAlign:"center",padding:"8px 0"}}>Nenhuma vaga mapeada para este evento.</div>}
+      {vagas.length===0&&(
+        <div style={{fontSize:12,color:"var(--text3)",textAlign:"center",padding:"8px 0"}}>
+          <div style={{marginBottom:6}}>Nenhuma vaga mapeada para este evento.</div>
+          {diag&&(
+            <div style={{textAlign:"left",background:"#fff",border:"1px solid #BFDBFE",borderRadius:6,padding:"8px 10px",fontSize:11,color:"#374151",lineHeight:1.7}}>
+              <div><b>Diagnóstico do servidor:</b></div>
+              <div>Freelancers carregados: <b>{diag.totalFreelancers}</b></div>
+              <div>Funções configuradas (service_roles): <b>{diag.requiredRoles&&diag.requiredRoles.length>0?diag.requiredRoles.map(r=>r.funcao).join(", "):"nenhuma"}</b></div>
+              <div>Serviços do evento: <b>{diag.serviceNames&&diag.serviceNames.length>0?diag.serviceNames.join(", "):"nenhum"}</b></div>
+              <div>IDs dos serviços: <b style={{wordBreak:"break-all"}}>{diag.serviceIds&&diag.serviceIds.length>0?diag.serviceIds.join(", "):"nenhum"}</b></div>
+              {diag.requiredRoles&&diag.requiredRoles.length===0&&(
+                <div style={{marginTop:6,color:"#B45309",fontWeight:600}}>
+                  ⚠ service_roles vazio — configure funções na aba Serviços do Dashboard.
+                </div>
+              )}
+              {diag.totalFreelancers===0&&(
+                <div style={{marginTop:6,color:"#B45309",fontWeight:600}}>
+                  ⚠ Nenhum freelancer carregado do banco.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
       {vagas.map((vaga,vi)=>(
         <div key={vi} style={{marginBottom:10}}>
           <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",color:"var(--text2)",marginBottom:5}}>

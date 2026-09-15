@@ -24,9 +24,15 @@ async function sugerir(req, res) {
 
     res.json({
       eventId,
-      event:  ctx.event,
+      event:         ctx.event,
       vagas,
-      weights: w,
+      weights:       w,
+      _diag: {
+        totalFreelancers: ctx.freelancers.length,
+        requiredRoles:    ctx.requiredRoles,
+        serviceIds:       ctx.eventServiceIds,
+        serviceNames:     ctx.eventServiceNames,
+      },
     });
   } catch (err) {
     console.error('[roster.controller] Erro em sugerir:', err.message);
