@@ -1,8 +1,9 @@
 'use strict';
 
-const dadosRepo  = require('../repositories/dados.repo');
-const enviosRepo = require('../repositories/envios.repo');
-const waSvc      = require('./whatsapp.service');
+const dadosRepo   = require('../repositories/dados.repo');
+const enviosRepo  = require('../repositories/envios.repo');
+const waSvc       = require('./whatsapp.service');
+const templateSvc = require('./template.service');
 const { buildEscalaDiariaGrupo } = require('../templates/escala.template');
 const supabase = require('../config/supabase');
 
@@ -55,7 +56,24 @@ async function enviarEscalaDia(adminId, data, grupoJid) {
   }
 
   // ── 5. Construir mensagem ────────────────────────────────────────────────────
-  const { texto, mentions } = buildEscalaDiariaGrupo(data, eventosDoDia, flById);
+  let tpl = null;
+  try {
+    tpl = await templateSvc.loadTemplate(adminId, 'escala_diaria_grupo');
+  } catch (err) {
+    console.warn('[escala.service] Falha ao carregar template — usando default:', err.message);
+  }
+  // Se template inativo, pular envio
+  if (tpl && tpl.ativo === false) {
+    console.warn(`[escala.service] Template 'escala_diaria_grupo' está inativo para ${adminId} — envio pulado.`);
+    return {
+      enviado:           false,
+      totalEventos:      eventosDoDia.length,
+      totalFuncionarios: 0,
+      semTelefone:       [],
+      erro:              'Template de mensagem inativo.',
+    };
+  }
+  const { texto, mentions } = buildEscalaDiariaGrupo(data, eventosDoDia, flById, tpl?.corpo);
 
   // ── 6. Enviar para o grupo ───────────────────────────────────────────────────
   const resultado = await waSvc.enviarMensagem(adminId, grupoJid, texto, mentions);

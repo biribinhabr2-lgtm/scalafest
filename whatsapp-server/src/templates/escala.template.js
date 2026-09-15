@@ -47,51 +47,67 @@ function cmpHorario(a, b) {
 /**
  * Constrói a mensagem de escala diária para envio em grupo.
  *
- * @param {string}   data        - "YYYY-MM-DD"
- * @param {Array}    eventos     - eventos do dia, já filtrados por data
- * @param {Object}   flById      - { [id]: freelancer } índice para lookup rápido
+ * @param {string}   data          - "YYYY-MM-DD"
+ * @param {Array}    eventos       - eventos do dia, já filtrados por data
+ * @param {Object}   flById        - { [id]: freelancer } índice para lookup rápido
+ * @param {string}   [templateCorpo] - corpo do template com {{data_extenso}} e {{blocos_eventos}}
  * @returns {{ texto: string, mentions: string[] }}
  */
-function buildEscalaDiariaGrupo(data, eventos, flById) {
-  // Ordena eventos do mais cedo para o mais tarde
+function buildEscalaDiariaGrupo(data, eventos, flById, templateCorpo) {
   const ordenados = [...eventos].sort((a, b) =>
     cmpHorario(a.horaInicio || '00:00', b.horaInicio || '00:00')
   );
 
-  const mentionsSet = new Set(); // JIDs únicos para @menção
-  const linhas = [`🗓️ ${fmtDiaSemana(data)}`];
+  const mentionsSet = new Set();
+  const blocoLinhas = [];
 
   for (const ev of ordenados) {
-    linhas.push('');
-    linhas.push(`*${ev.nome}*`);
-    if (ev.local)    linhas.push(`📍 ${ev.local}`);
+    blocoLinhas.push('');
+    blocoLinhas.push(`*${ev.nome}*`);
+    if (ev.local)    blocoLinhas.push(`📍 ${ev.local}`);
     if (ev.horaInicio && ev.horaFim)
-      linhas.push(`⏰ ${ev.horaInicio} — ${ev.horaFim}`);
+      blocoLinhas.push(`⏰ ${ev.horaInicio} — ${ev.horaFim}`);
 
     const equipe = ev.equipe ?? [];
-    // Ordena os membros do evento por nome
     const membrosOrdenados = [...equipe]
       .map(m => ({ m, fl: flById[String(m.freelancerId)] }))
-      .filter(({ fl }) => fl) // ignora freelancers removidos
+      .filter(({ fl }) => fl)
       .sort((a, b) => (a.fl.nome || '').localeCompare(b.fl.nome || '', 'pt-BR'));
 
     for (const { m, fl } of membrosOrdenados) {
       const jid = telParaJid(fl.telefone);
       if (jid) {
         const num = jidParaNumero(jid);
-        linhas.push(`@${num} - ${m.funcao}`);
+        blocoLinhas.push(`@${num} - ${m.funcao}`);
         mentionsSet.add(jid);
       } else {
-        // Sem telefone — lista sem @menção
-        linhas.push(`${fl.nome} - ${m.funcao}`);
+        blocoLinhas.push(`${fl.nome} - ${m.funcao}`);
       }
     }
   }
 
-  return {
-    texto: linhas.join('\n'),
-    mentions: [...mentionsSet],
-  };
+  const blocos_eventos = blocoLinhas.join('\n').replace(/^\n/, '');
+  const corpo = templateCorpo || '🗓️ {{data_extenso}}\n\n{{blocos_eventos}}';
+  const texto = renderTemplate(corpo, {
+    data_extenso:   fmtDiaSemana(data),
+    blocos_eventos,
+  });
+
+  return { texto, mentions: [...mentionsSet] };
 }
 
-module.exports = { buildEscalaDiariaGrupo, telParaJid, limparTel };
+/**
+ * Substitui {{variavel}} no corpo. Variável ausente → string vazia.
+ * Exportada para reuso no frontend (via cópia) e em testes.
+ */
+function renderTemplate(corpo, vars) {
+  return corpo.replace(/\{\{(\w+)\}\}/g, (match, key) => {
+    if (!(key in vars)) {
+      console.warn(`[template] '${match}' não encontrada — deixando vazio`);
+      return '';
+    }
+    return vars[key] == null ? '' : String(vars[key]);
+  });
+}
+
+module.exports = { buildEscalaDiariaGrupo, renderTemplate, telParaJid, limparTel };

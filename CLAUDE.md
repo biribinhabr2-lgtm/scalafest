@@ -381,6 +381,10 @@ supabase secrets set ASAAS_SANDBOX=false
 - [ ] **event_team_wa_notificado** — rodar `supabase/sql/event_team_wa_notificado.sql` no Supabase SQL Editor para adicionar coluna `wa_notificado_em TIMESTAMPTZ` à `event_team`.
 - [ ] **Railway redeploy** — `whatsapp-server/src/repositories/dados.repo.js` e `whatsapp-server/src/services/escala.service.js` alterados.
 
+### Mensagens WhatsApp editáveis
+- [ ] **message_templates** — rodar `supabase/sql/message_templates.sql` no Supabase SQL Editor (cria tabela + RLS). Pré-requisito: `is_gestao()` já deve existir.
+- [ ] **Railway redeploy** — `escala.service.js`, `templates/escala.template.js` + novos arquivos `repositories/templates.repo.js`, `services/template.service.js`, `controllers/templates.controller.js`, `routes/templates.routes.js`, `routes/index.js` alterados.
+
 ### Outras pendências
 - [ ] **template_kits** — rodar `supabase/sql/template_kits.sql` no Supabase SQL Editor para criar `template_kits` + `template_kit_items` + coluna `kit_item_id` em `event_items` + policies de Storage + migração de `item_templates` (se houver dados)
 - [ ] **catalog-images bucket** — criar bucket no Supabase Storage: nome `catalog-images`, privado, máx 5MB, tipos image/jpeg + image/png + image/webp
