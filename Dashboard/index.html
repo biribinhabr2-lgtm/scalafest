@@ -2818,6 +2818,8 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
   useEffect(()=>{
     if(!rosterTarget)return;
     setDetalhe(rosterTarget);
+    const ev=eventos.find(e=>e.id===rosterTarget);
+    if(ev)abrirSugestaoEscala(ev);
     onRosterTargetConsumed?.();
   },[rosterTarget]);
 
