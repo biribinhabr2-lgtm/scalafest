@@ -2600,9 +2600,20 @@ function ChecklistPage({eventos,tenantId}){
 const foiAtualizado=ev=>!!(ev.updatedAt&&Date.now()-new Date(ev.updatedAt).getTime()<48*3600000);
 
 // ── PAINEL SUGESTÃO DE ESCALA ─────────────────────────────────────────────────
-function PainelSugestaoEscala({loading,data,sel,setSel,expandido,setExpandido,aplicando,novos,enviarConfNow,setEnviarConfNow,ev,onAplicar,onClose,waEscala}){
+function PainelSugestaoEscala({loading,data,erro,onRetry,sel,setSel,expandido,setExpandido,aplicando,novos,enviarConfNow,setEnviarConfNow,ev,onAplicar,onClose,waEscala}){
   if(loading)return(
     <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:10,padding:16,marginBottom:12,textAlign:"center",color:"var(--text3)",fontSize:13}}>Buscando sugestões…</div>
+  );
+  if(erro)return(
+    <div style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:10,padding:14,marginBottom:12}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+        <span style={{fontWeight:700,color:"var(--danger)",fontSize:13}}>Erro ao buscar sugestões</span>
+        <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:"var(--text3)",fontSize:16,padding:0,lineHeight:1}}>×</button>
+      </div>
+      <div style={{fontSize:12,color:"#B91C1C",marginBottom:10,wordBreak:"break-all"}}>{erro}</div>
+      <div style={{fontSize:11,color:"var(--text3)",marginBottom:10}}>Verifique se o servidor Railway está ativo e se os serviços têm funções configuradas.</div>
+      {onRetry&&<button onClick={onRetry} style={{background:"var(--danger)",color:"#fff",border:"none",borderRadius:7,padding:"6px 14px",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>↻ Tentar novamente</button>}
+    </div>
   );
   if(!data)return null;
   const vagas=data.vagas||[];
@@ -2735,6 +2746,7 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
   const[rosterPanel,setRosterPanel]=useState(null);
   const[rosterData,setRosterData]=useState(null);
   const[rosterLoading,setRosterLoading]=useState(false);
+  const[rosterErro,setRosterErro]=useState(null);
   const[rosterSel,setRosterSel]=useState({});
   const[rosterExpandido,setRosterExpandido]=useState({});
   const[rosterAplicando,setRosterAplicando]=useState(false);
@@ -2827,6 +2839,7 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
     setRosterPanel(ev.id);
     setRosterLoading(true);
     setRosterData(null);
+    setRosterErro(null);
     setRosterSel({});
     setRosterExpandido({});
     setRosterNovos([]);
@@ -2841,8 +2854,7 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
       setRosterSel(initSel);
     }catch(err){
       console.error("[abrirSugestaoEscala]",err.message);
-      addToast?.("Erro ao buscar sugestões: "+err.message,"erro");
-      setRosterPanel(null);
+      setRosterErro(err.message);
     }
     setRosterLoading(false);
   };
@@ -3543,11 +3555,12 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
           {!gestaoMode&&(det.triagem_status==="reconhecido"||det.triagem_status==="confirmado")&&(
             rosterPanel===det.id
             ?<PainelSugestaoEscala
-                loading={rosterLoading} data={rosterData} sel={rosterSel} setSel={setRosterSel}
+                loading={rosterLoading} data={rosterData} erro={rosterErro} onRetry={()=>abrirSugestaoEscala(det)}
+                sel={rosterSel} setSel={setRosterSel}
                 expandido={rosterExpandido} setExpandido={setRosterExpandido}
                 aplicando={rosterAplicando} novos={rosterNovos}
                 enviarConfNow={enviarConfNow} setEnviarConfNow={setEnviarConfNow}
-                ev={det} onAplicar={ev=>{const cur=eventos.find(e=>e.id===det.id);aplicarSugestaoEscala(cur||det);}} onClose={()=>setRosterPanel(null)} waEscala={waEscala}/>
+                ev={det} onAplicar={ev=>{const cur=eventos.find(e=>e.id===det.id);aplicarSugestaoEscala(cur||det);}} onClose={()=>{setRosterPanel(null);setRosterErro(null);}} waEscala={waEscala}/>
             :<button onClick={()=>abrirSugestaoEscala(det)}
                 style={{display:"flex",alignItems:"center",gap:7,background:"#EFF6FF",border:"1px solid #BFDBFE",borderRadius:8,padding:"8px 14px",fontSize:13,fontWeight:600,color:"#1D4ED8",cursor:"pointer",fontFamily:"inherit",marginBottom:12,width:"100%"}}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
