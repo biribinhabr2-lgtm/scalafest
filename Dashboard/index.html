@@ -1795,7 +1795,7 @@ function AbaTriagem({tenantId,onSugerirEscala}){
   const[confirmadoRecente,setConfirmadoRecente]=React.useState(null); // {id,nome} post-confirm banner
   // Per-event local overrides: {[eventId]: {[blocoIdx]: serviceId|null}}
   const[sel,setSel]=React.useState({});
-  const{addToast}=React.useContext(ToastContext);
+  const addToast=useToast();
 
   const carregar=React.useCallback(async()=>{
     setLoading(true);
