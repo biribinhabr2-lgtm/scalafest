@@ -829,8 +829,51 @@ const initials=n=>n.split(" ").map(w=>w[0]).slice(0,2).join("").toUpperCase();
 const avatarColor=n=>{const c=["var(--warning)","#3b82f6","#a855f7","var(--success)","#ec4899","#f97316","var(--primary)","#14b8a6","var(--danger)"];let h=0;for(let x of n)h=(h*31+x.charCodeAt(0))%c.length;return c[h];};
 const limparTel=t=>t?t.replace(/\D/g,""):"";
 const toGCal=(data,hora)=>{const[y,m,d]=data.split("-");const[hh,mm]=(hora||"00:00").split(":");return`${y}${m}${d}T${hh}${mm}00`;};
-const waEscala=(f,ev,m)=>{const t=limparTel(f.telefone);if(!t)return null;const msg=`Olá, *${f.nome}*! 👋\n\nVocê foi escalado(a) para:\n\n🎪 *${ev.nome}*\n📅 ${fmtDate(ev.data)}\n⏰ ${ev.horaInicio} — ${ev.horaFim}\n📍 ${ev.local}\n🎭 Função: *${m.funcao}*\n💰 Cachê: *R$ ${m.cache.toFixed(2).replace(".",",")}*\n\nConfirme sua presença! 🙏`;return`https://wa.me/55${t}?text=${encodeURIComponent(msg)}`;};
-const waPag=(f,ev,m)=>{const t=limparTel(f.telefone);if(!t)return null;const msg=`Olá, *${f.nome}*! 👋\n\nPagamento pendente:\n\n🎪 *${ev.nome}*\n📅 ${fmtDate(ev.data)}\n💰 R$ ${m.cache.toFixed(2).replace(".",",")}${f.pix?`\n\n💳 PIX: *${f.pix}*`:""}\n\nObrigado! ✅`;return`https://wa.me/55${t}?text=${encodeURIComponent(msg)}`;};
+// ── Templates de mensagem WhatsApp ──────────────────────────────────────────
+const _TPLDEF={
+  confirmacao_presenca:{nome:"Confirmação de Presença",variaveis_disponiveis:["{{nome}}","{{evento}}","{{data}}","{{hora_inicio}}","{{hora_fim}}","{{local}}","{{funcao}}","{{cache}}"],corpo:"Olá, *{{nome}}*! 👋\n\nVocê foi escalado(a) para:\n\n🎪 *{{evento}}*\n📅 {{data}}\n⏰ {{hora_inicio}} — {{hora_fim}}\n📍 {{local}}\n🎭 Função: *{{funcao}}*\n💰 Cachê: *R$ {{cache}}*\n\nConfirme sua presença! 🙏",ativo:true},
+  aviso_pagamento:{nome:"Aviso de Pagamento",variaveis_disponiveis:["{{nome}}","{{evento}}","{{data}}","{{cache}}","{{pix_linha}}","{{pix}}"],corpo:"Olá, *{{nome}}*! 👋\n\nPagamento pendente:\n\n🎪 *{{evento}}*\n📅 {{data}}\n💰 R$ {{cache}}\n{{pix_linha}}\n\nObrigado! ✅",ativo:true},
+  caches_pendentes_lote:{nome:"Cachês Pendentes (lote)",variaveis_disponiveis:["{{nome}}","{{lista_eventos}}","{{total}}","{{pix_linha}}","{{pix}}"],corpo:"Olá, *{{nome}}*! 👋\n\nCachês pendentes:\n\n{{lista_eventos}}\n\n💰 *Total: R$ {{total}}*\n{{pix_linha}}\n\nObrigado! 🙏",ativo:true},
+  escala_diaria_grupo:{nome:"Escala do Dia (grupo)",variaveis_disponiveis:["{{data_extenso}}","{{blocos_eventos}}"],corpo:"🗓️ {{data_extenso}}\n\n{{blocos_eventos}}",ativo:true},
+  lembrete_vespera:{nome:"Lembrete Véspera",variaveis_disponiveis:["{{nome}}","{{evento}}","{{data}}","{{hora_inicio}}","{{hora_fim}}","{{local}}","{{funcao}}"],corpo:"Olá, *{{nome}}*! 👋\n\nLembrete: amanhã você está escalado(a) para:\n\n🎪 *{{evento}}*\n📅 {{data}}\n⏰ {{hora_inicio}} — {{hora_fim}}\n📍 {{local}}\n🎭 Função: *{{funcao}}*\n\nQualquer dúvida, estamos por aqui! 😊",ativo:true},
+  feedback_pos_evento:{nome:"Pedido de Feedback",variaveis_disponiveis:["{{nome}}","{{evento}}","{{link_feedback}}"],corpo:"Olá, *{{nome}}*! 👋\n\nObrigado por trabalhar conosco em *{{evento}}*! 🎉\n\nSua opinião é muito importante. Acesse o link abaixo para avaliar o evento:\n\n{{link_feedback}}\n\nLeva menos de 2 minutos! ⭐",ativo:true},
+};
+let _sfTemplates={};
+
+async function loadTemplatesFrontend(adminId){
+  if(!adminId)return;
+  try{
+    const r=await fetch(`${WA_SERVER_URL}/api/templates?adminId=${adminId}`,{headers:{"bypass-tunnel-reminder":"true","x-api-secret":WA_SECRET,"x-admin-id":adminId}});
+    if(!r.ok)return;
+    const arr=await r.json();
+    _sfTemplates={};
+    for(const t of arr) _sfTemplates[t.chave]=t;
+  }catch(e){console.warn("[templates] Falha ao carregar templates:",e.message);}
+}
+
+function _getTpl(chave){return _sfTemplates[chave]||_TPLDEF[chave]||null;}
+
+function renderTemplateFrontend(corpo,vars){
+  return corpo.replace(/\{\{(\w+)\}\}/g,(_,key)=>{
+    if(!(key in vars)){console.warn(`[template] {{${key}}} não encontrada`);return"";}
+    return vars[key]==null?"":String(vars[key]);
+  });
+}
+
+const waEscala=(f,ev,m)=>{
+  const t=limparTel(f.telefone);if(!t)return null;
+  const tpl=_getTpl("confirmacao_presenca");
+  if(tpl&&tpl.ativo===false)return null;
+  const msg=renderTemplateFrontend(tpl?.corpo||_TPLDEF.confirmacao_presenca.corpo,{nome:f.nome,evento:ev.nome,data:fmtDate(ev.data),hora_inicio:ev.horaInicio||"",hora_fim:ev.horaFim||"",local:ev.local||"",funcao:m.funcao,cache:m.cache.toFixed(2).replace(".",",")});
+  return`https://wa.me/55${t}?text=${encodeURIComponent(msg)}`;
+};
+const waPag=(f,ev,m)=>{
+  const t=limparTel(f.telefone);if(!t)return null;
+  const tpl=_getTpl("aviso_pagamento");
+  if(tpl&&tpl.ativo===false)return null;
+  const msg=renderTemplateFrontend(tpl?.corpo||_TPLDEF.aviso_pagamento.corpo,{nome:f.nome,evento:ev.nome,data:fmtDate(ev.data),cache:m.cache.toFixed(2).replace(".",","),pix_linha:f.pix?`💳 PIX: *${f.pix}*`:"",pix:f.pix||""});
+  return`https://wa.me/55${t}?text=${encodeURIComponent(msg)}`;
+};
 
 // ── UI BASE ─────────────────────────────────────────────────────────────────────
 const Avatar=({nome,size=36})=>(<div style={{width:size,height:size,borderRadius:"50%",background:avatarColor(nome),display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.35,fontWeight:700,color:"#fff",flexShrink:0}}>{initials(nome)}</div>);
@@ -894,6 +937,7 @@ const NAV_ICONS={
   checklist:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>,
   minha_escala:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 9h18M8 2v4M16 2v4M12 13v4M10 15h4"/></svg>,
   modelos:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>,
+  mensagens:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.65 3.41 2 2 0 0 1 3.62 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.6a16 16 0 0 0 6 6l.96-.96a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21.73 16"/></svg>,
   servicos:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83z"/><path d="m22 17.65-9.17 4.16a2 2 0 0 1-1.66 0L2 17.65"/><path d="m22 12.65-9.17 4.16a2 2 0 0 1-1.66 0L2 12.65"/></svg>,
   triagem:()=><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 3H2l8 9.46V19l4 2V12.46z"/></svg>,
 };
@@ -902,7 +946,7 @@ const Sidebar=({aba,setAba,mobile,onReset,userEmail,onLogout,onRefresh,onSyncCal
   const GROUPS=[
     [{id:"inicio",label:"Início"},{id:"eventos",label:"Eventos"},{id:"checklist",label:"Checklist"},{id:"triagem",label:"Triagem"},{id:"modelos",label:"Modelos"},{id:"equipe",label:"Equipe"},{id:"disponibilidade",label:"Disponib."}],
     [{id:"servicos",label:"Serviços"},{id:"funcoes",label:"Funções"},{id:"bonificacoes",label:"Bônus"},{id:"treinamentos",label:"Treinos"},{id:"feedback",label:"Feedback"}],
-    [{id:"ranking",label:"Ranking"},{id:"relatorios",label:"Relatórios"},{id:"plano",label:"Plano"}],
+    [{id:"mensagens",label:"Mensagens"},{id:"ranking",label:"Ranking"},{id:"relatorios",label:"Relatórios"},{id:"plano",label:"Plano"}],
   ];
   const NAV_FLAT=GROUPS.flat();
   const initial=userEmail?userEmail[0].toUpperCase():"?";
@@ -1741,13 +1785,14 @@ function AbaServicos({tenantId,funcoes}){
 }
 
 // ── ABA TRIAGEM — revisão de reconhecimento automático de serviços ────────────
-function AbaTriagem({tenantId}){
+function AbaTriagem({tenantId,onSugerirEscala}){
   const[eventos,setEventos]=React.useState([]);
   const[servicos,setServicos]=React.useState([]);
   const[loading,setLoading]=React.useState(true);
   const[saving,setSaving]=React.useState(null); // eventId being saved
   const[criarModal,setCriarModal]=React.useState(null); // {eventId, blocoIdx, nomeBruto}
   const[novoNome,setNovoNome]=React.useState('');
+  const[confirmadoRecente,setConfirmadoRecente]=React.useState(null); // {id,nome} post-confirm banner
   // Per-event local overrides: {[eventId]: {[blocoIdx]: serviceId|null}}
   const[sel,setSel]=React.useState({});
   const{addToast}=React.useContext(ToastContext);
@@ -1809,6 +1854,7 @@ function AbaTriagem({tenantId}){
       }
       await sb.from('events').update({triagem_status:'confirmado'}).eq('id',ev.id).eq('tenant_id',tenantId);
       addToast('Evento confirmado','ok');
+      setConfirmadoRecente({id:ev.id,nome:ev.titulo_original||ev.nome});
       setEventos(prev=>prev.filter(e=>e.id!==ev.id));
     }catch(e){addToast('Erro: '+e.message,'erro');}
     setSaving(null);
@@ -1841,6 +1887,17 @@ function AbaTriagem({tenantId}){
         </div>
         <button onClick={carregar} style={{background:'transparent',border:'1px solid var(--border)',borderRadius:8,padding:'7px 14px',fontSize:12,color:'var(--text2)',cursor:'pointer',fontFamily:'inherit'}}>↻ Atualizar</button>
       </div>
+      {confirmadoRecente&&(
+        <div style={{background:'#F0FDF4',border:'1px solid #BBF7D0',borderRadius:10,padding:'10px 14px',marginBottom:14,display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#16A34A" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <span style={{fontSize:13,color:'#15803D',fontWeight:600,flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>Confirmado: {confirmadoRecente.nome}</span>
+          {onSugerirEscala&&<button onClick={()=>onSugerirEscala(confirmadoRecente.id)} style={{background:'#15803D',color:'#fff',border:'none',borderRadius:7,padding:'5px 12px',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',display:'flex',alignItems:'center',gap:5}}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+            Sugerir escala
+          </button>}
+          <button onClick={()=>setConfirmadoRecente(null)} style={{background:'transparent',border:'none',color:'#16A34A',cursor:'pointer',fontSize:16,padding:0,lineHeight:1,opacity:0.7}}>×</button>
+        </div>
+      )}
       {eventos.length===0&&<div style={{textAlign:'center',color:'var(--text3)',padding:'48px 0',fontSize:14}}>Nenhum evento pendente de triagem.</div>}
       <div style={{display:'flex',flexDirection:'column',gap:14}}>
         {eventos.map(ev=>(
@@ -2542,8 +2599,117 @@ function ChecklistPage({eventos,tenantId}){
 
 const foiAtualizado=ev=>!!(ev.updatedAt&&Date.now()-new Date(ev.updatedAt).getTime()<48*3600000);
 
+// ── PAINEL SUGESTÃO DE ESCALA ─────────────────────────────────────────────────
+function PainelSugestaoEscala({loading,data,sel,setSel,expandido,setExpandido,aplicando,novos,enviarConfNow,setEnviarConfNow,ev,onAplicar,onClose,waEscala}){
+  if(loading)return(
+    <div style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:10,padding:16,marginBottom:12,textAlign:"center",color:"var(--text3)",fontSize:13}}>Buscando sugestões…</div>
+  );
+  if(!data)return null;
+  const vagas=data.vagas||[];
+  const jaNoTime=fid=>(ev.equipe||[]).some(m=>String(m.freelancerId)===String(fid));
+  const temParaAplicar=Object.entries(sel).some(([,fid])=>!jaNoTime(fid));
+  return(
+    <div style={{background:"#EFF6FF",border:"1px solid #BFDBFE",borderRadius:10,padding:14,marginBottom:12}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}>
+        <span style={{fontWeight:700,color:"#1D4ED8",fontSize:13,display:"flex",alignItems:"center",gap:5}}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          Sugestão de Escala
+        </span>
+        <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:"var(--text3)",fontSize:16,padding:0,lineHeight:1}}>×</button>
+      </div>
+      {vagas.length===0&&<div style={{fontSize:12,color:"var(--text3)",textAlign:"center",padding:"8px 0"}}>Nenhuma vaga mapeada para este evento.</div>}
+      {vagas.map((vaga,vi)=>(
+        <div key={vi} style={{marginBottom:10}}>
+          <div style={{fontSize:11,fontWeight:700,textTransform:"uppercase",letterSpacing:"0.06em",color:"var(--text2)",marginBottom:5}}>
+            {vaga.funcao} <span style={{fontWeight:400,textTransform:"none",letterSpacing:0}}>({vaga.quantidade} vaga{vaga.quantidade!==1?"s":""})</span>
+          </div>
+          {vaga.semSugestao&&(
+            <div style={{background:"#FFF7ED",border:"1px solid #FED7AA",borderRadius:7,padding:"7px 10px",marginBottom:5,fontSize:12,color:"#92400E",display:"flex",alignItems:"flex-start",gap:6}}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0,marginTop:1}}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              {vaga.semSugestao}
+            </div>
+          )}
+          {Array.from({length:vaga.quantidade},(_,si)=>{
+            const key=`${vi}_${si}`;
+            const cand=vaga.sugeridos?.[si];
+            if(!cand)return(
+              <div key={si} style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:7,padding:"7px 10px",marginBottom:4,fontSize:12,color:"var(--danger)"}}>Vaga sem sugestão disponível</div>
+            );
+            const selFid=sel[key]!==undefined?sel[key]:cand.freelancerId;
+            const selCand=vaga.candidatos?.find(c=>c.freelancerId===selFid)||cand;
+            const jaEscalado=jaNoTime(selFid);
+            const exp=expandido[key];
+            const outrosSel=Object.entries(sel).filter(([k])=>k!==key).map(([,v])=>String(v));
+            const alternativas=(vaga.candidatos||[]).filter(c=>!c.eliminado&&String(c.freelancerId)!==String(selFid)&&!outrosSel.includes(String(c.freelancerId)));
+            return(
+              <div key={si} style={{background:jaEscalado?"#F0FDF4":"var(--card)",border:`1px solid ${jaEscalado?"#BBF7D0":"var(--border)"}`,borderRadius:7,padding:"7px 10px",marginBottom:4}}>
+                <div style={{display:"flex",alignItems:"center",gap:7}}>
+                  <Avatar nome={selCand.nome} size={26}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:12,fontWeight:700,color:jaEscalado?"var(--success)":"var(--text)",display:"flex",alignItems:"center",gap:4}}>
+                      {selCand.nome}
+                      {jaEscalado&&<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                    </div>
+                    <div style={{fontSize:10,color:"var(--text3)",marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{(selCand.motivos||[]).join(" · ")||"—"}</div>
+                  </div>
+                  {!jaEscalado&&alternativas.length>0&&(
+                    <button onClick={()=>setExpandido(ex=>({...ex,[key]:!ex[key]}))} style={{background:"var(--border)",border:"none",borderRadius:5,padding:"3px 8px",fontSize:10,color:"var(--text2)",cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>{exp?"▲":"Trocar"}</button>
+                  )}
+                </div>
+                {exp&&(
+                  <div style={{marginTop:7,borderTop:"1px solid var(--border)",paddingTop:7,display:"flex",flexDirection:"column",gap:3,maxHeight:200,overflowY:"auto"}}>
+                    {alternativas.map(alt=>(
+                      <button key={alt.freelancerId} onClick={()=>{setSel(s=>({...s,[key]:alt.freelancerId}));setExpandido(ex=>({...ex,[key]:false}));}}
+                        style={{display:"flex",alignItems:"center",gap:7,background:"transparent",border:"1px solid var(--border)",borderRadius:6,padding:"5px 8px",cursor:"pointer",textAlign:"left",fontFamily:"inherit",width:"100%"}}>
+                        <Avatar nome={alt.nome} size={20}/>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{fontSize:11,fontWeight:600,color:"var(--text)"}}>{alt.nome}</div>
+                          <div style={{fontSize:10,color:"var(--text3)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{(alt.motivos||[]).join(" · ")||"—"}</div>
+                        </div>
+                        <span style={{fontSize:10,color:"var(--text3)",flexShrink:0}}>{typeof alt.score==="number"?alt.score.toFixed(1):""}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ))}
+      {novos.length===0&&(
+        <div style={{borderTop:"1px solid #BFDBFE",paddingTop:10,marginTop:4,display:"flex",flexDirection:"column",gap:7}}>
+          <label style={{display:"flex",alignItems:"center",gap:7,fontSize:12,color:"var(--text2)",cursor:"pointer"}}>
+            <input type="checkbox" checked={enviarConfNow} onChange={e=>setEnviarConfNow(e.target.checked)} style={{accentColor:"#1D4ED8"}}/>
+            Enviar confirmações por WhatsApp após aplicar
+          </label>
+          <button disabled={aplicando||!temParaAplicar} onClick={()=>onAplicar(ev)}
+            style={{background:aplicando||!temParaAplicar?"var(--border)":"#1D4ED8",color:aplicando||!temParaAplicar?"var(--text3)":"#fff",border:"none",borderRadius:8,padding:"8px 14px",fontSize:13,fontWeight:700,cursor:aplicando||!temParaAplicar?"not-allowed":"pointer",fontFamily:"inherit"}}>
+            {aplicando?"Aplicando…":"Aplicar escala"}
+          </button>
+        </div>
+      )}
+      {novos.length>0&&(
+        <div style={{borderTop:"1px solid #BBF7D0",paddingTop:10,marginTop:4}}>
+          <div style={{fontSize:12,fontWeight:700,color:"#15803D",marginBottom:enviarConfNow?6:0,display:"flex",alignItems:"center",gap:5}}>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            {novos.length} membro{novos.length!==1?"s":""} escalado{novos.length!==1?"s":""}
+            {enviarConfNow?" — envie as confirmações:":"."}
+          </div>
+          {enviarConfNow&&novos.map(({freelancer:f,membro:m},i)=>(
+            <div key={i} style={{display:"flex",alignItems:"center",gap:7,marginTop:5}}>
+              <Avatar nome={f.nome} size={22}/>
+              <span style={{fontSize:12,flex:1,color:"var(--text)"}}>{f.nome}</span>
+              <WaBtn url={waEscala(f,ev,m)} tipo="escala" small/>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── ABA EVENTOS ────────────────────────────────────────────────────────────────
-function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,userId,gestaoMode=false}){
+function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,userId,gestaoMode=false,rosterTarget,onRosterTargetConsumed}){
   const addToast=useToast();
   const[modal,setModal]=useState(null);
   const[detalhe,setDetalhe]=useState(null);
@@ -2565,6 +2731,15 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
   const[waAdminId,setWaAdminId]=useState(null);
   const[waConectado,setWaConectado]=useState(null); // null=desconhecido, true, false
   const[pdfCarregando,setPdfCarregando]=useState(false);
+  // ── Sugestão de escala ───────────────────────────────────────────────────────
+  const[rosterPanel,setRosterPanel]=useState(null);
+  const[rosterData,setRosterData]=useState(null);
+  const[rosterLoading,setRosterLoading]=useState(false);
+  const[rosterSel,setRosterSel]=useState({});
+  const[rosterExpandido,setRosterExpandido]=useState({});
+  const[rosterAplicando,setRosterAplicando]=useState(false);
+  const[rosterNovos,setRosterNovos]=useState([]);
+  const[enviarConfNow,setEnviarConfNow]=useState(true);
   // Carrega adminId da sessão uma vez
   useEffect(()=>{
     sb.auth.getSession().then(({data:{session}})=>setWaAdminId(session?.user?.id||null)).catch(()=>{});
@@ -2606,6 +2781,8 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
   const[dispCloud,setDispCloud]=useState({}); // {freelancerId: {data: status}}
   const fl=id=>freelancers.find(f=>f.id===id);
   const det=detalhe?eventos.find(e=>e.id===detalhe):null;
+  // Fechar painel de sugestão ao trocar/fechar evento
+  useEffect(()=>{ setRosterPanel(null);setRosterNovos([]); },[detalhe]);
 
   // Carregar disponibilidade de todos os freelancers via sf_perfis (fallback por nome se sem userId)
   useEffect(()=>{
@@ -2636,6 +2813,74 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
     };
     load().catch(()=>{});
   },[freelancers.map(f=>f.id).join(",")]);
+
+  // Abre drawer no evento alvo vindo da Triagem
+  useEffect(()=>{
+    if(!rosterTarget)return;
+    setDetalhe(rosterTarget);
+    onRosterTargetConsumed?.();
+  },[rosterTarget]);
+
+  const abrirSugestaoEscala=async(ev)=>{
+    setRosterPanel(ev.id);
+    setRosterLoading(true);
+    setRosterData(null);
+    setRosterSel({});
+    setRosterExpandido({});
+    setRosterNovos([]);
+    try{
+      const url=waUrl||WA_SERVER_URL;
+      const r=await fetch(url+"/api/roster/sugerir",{method:"POST",headers:waHeaders({"Content-Type":"application/json"}),body:JSON.stringify({adminId:userId,eventId:ev.id})});
+      if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.error||r.statusText);}
+      const d=await r.json();
+      setRosterData(d);
+      const initSel={};
+      (d.vagas||[]).forEach((v,vi)=>(v.sugeridos||[]).forEach((c,si)=>{initSel[`${vi}_${si}`]=c.freelancerId;}));
+      setRosterSel(initSel);
+    }catch(err){
+      console.error("[abrirSugestaoEscala]",err.message);
+      addToast?.("Erro ao buscar sugestões: "+err.message,"erro");
+      setRosterPanel(null);
+    }
+    setRosterLoading(false);
+  };
+
+  const aplicarSugestaoEscala=async(ev)=>{
+    setRosterAplicando(true);
+    const novos=[];
+    try{
+      const decisions=[];
+      const jaNaEquipe=fid=>(ev.equipe||[]).some(m=>String(m.freelancerId)===String(fid));
+      for(const[key,freelancerId]of Object.entries(rosterSel)){
+        if(jaNaEquipe(freelancerId))continue;
+        const[viStr,siStr]=key.split("_");
+        const vi=parseInt(viStr,10);
+        const vaga=rosterData?.vagas?.[vi];
+        if(!vaga)continue;
+        const fl=freelancers.find(f=>String(f.id)===String(freelancerId));
+        const dur=duracaoEvento(ev);
+        const nivelBonus=fl?.nivelBonus||null;
+        const nivelObj=NIVEIS_BONUS.find(n=>n.id===nivelBonus);
+        const bonusAuto=dur>(nivelObj?.tempoMin??180)&&!!nivelBonus;
+        const membro={freelancerId:+freelancerId,funcao:vaga.funcao,cache:fnDef(vaga.funcao),obs:"",pago:false,turnos:1,bonusMultTurnos:false,bonus:nivelBonus?{nivel:nivelBonus,ativo:bonusAuto}:null};
+        try{
+          const atualizado=await evSvc.upsertMember(userId,ev.id,membro);
+          setEventos(evs=>evs.map(e=>e.id===ev.id?atualizado:e));
+        }catch(e){console.error("[roster upsert]",e.message);addToast?.("Erro ao escalar "+(fl?.nome||"")+" : "+e.message,"erro");continue;}
+        if(fl)novos.push({freelancer:fl,membro});
+        const sugerido=vaga.sugeridos?.[parseInt(siStr,10)];
+        decisions.push({funcao:vaga.funcao,sugeridoFreelancerId:sugerido?.freelancerId||String(freelancerId),escolhidoFreelancerId:String(freelancerId)});
+      }
+      if(decisions.length>0){
+        const url=waUrl||WA_SERVER_URL;
+        fetch(url+"/api/roster/confirmar",{method:"POST",headers:waHeaders({"Content-Type":"application/json"}),body:JSON.stringify({adminId:userId,eventId:ev.id,decisions})}).catch(e=>console.warn("[roster confirmar]",e.message));
+      }
+      setRosterNovos(novos);
+      if(novos.length>0)addToast?.(novos.length+" membro(s) escalado(s)","ok");
+      else addToast?.("Todos já estavam escalados","aviso");
+    }catch(err){console.error("[aplicarSugestaoEscala]",err.message);addToast?.("Erro ao aplicar escala: "+err.message,"erro");}
+    setRosterAplicando(false);
+  };
 
   // Carregar confirmacoes de todos os freelancers com userId ao abrir detalhe
   useEffect(()=>{
@@ -3209,6 +3454,8 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
                 {ev.google_calendar_synced&&<span title="Importado do Google Calendar" style={{fontSize:9,fontWeight:700,color:"#4285F4",background:"#EFF6FF",border:"1px solid #BFDBFE",borderRadius:4,padding:"1px 4px",flexShrink:0,lineHeight:1}}>GCal</span>}
                 <StatusBadge status={ev.status}/>
                 {foiAtualizado(ev)&&<span title="Atualizado nas últimas 48h" style={{fontSize:10,background:"#FFF7ED",border:"1px solid #FED7AA",color:"var(--warning)",borderRadius:20,padding:"1px 6px",fontWeight:700,lineHeight:"16px",flexShrink:0,whiteSpace:"nowrap"}}>Atualizado</span>}
+                {ev.triagem_status==="nao_identificado"&&<span title="Serviço não identificado" style={{display:"inline-flex",alignItems:"center",color:"#D97706",flexShrink:0}}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></span>}
+                {(ev.triagem_status==="reconhecido"||ev.triagem_status==="confirmado")&&(ev.equipe||[]).length===0&&<span title="Escala em aberto" style={{display:"inline-flex",alignItems:"center",color:"var(--danger)",flexShrink:0}}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="20" y1="8" x2="20" y2="14"/><line x1="23" y1="11" x2="17" y2="11"/></svg></span>}
               </div>
             </div>
             {/* Data e local */}
@@ -3291,6 +3538,20 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
             <div>{fmtDate(det.data)} {det.horaInicio}–{det.horaFim}</div><div>{det.local}</div>{det.obs&&<div>{det.obs}</div>}
             {det.cliente_nome&&<div style={{borderTop:"1px solid var(--border)",marginTop:4,paddingTop:6,color:"var(--text)"}}><strong>{det.cliente_nome}</strong>{det.cliente_telefone&&<span style={{color:"var(--text2)",fontWeight:400}}> — {det.cliente_telefone}</span>}</div>}
           </div>
+          {!gestaoMode&&(det.triagem_status==="reconhecido"||det.triagem_status==="confirmado")&&(
+            rosterPanel===det.id
+            ?<PainelSugestaoEscala
+                loading={rosterLoading} data={rosterData} sel={rosterSel} setSel={setRosterSel}
+                expandido={rosterExpandido} setExpandido={setRosterExpandido}
+                aplicando={rosterAplicando} novos={rosterNovos}
+                enviarConfNow={enviarConfNow} setEnviarConfNow={setEnviarConfNow}
+                ev={det} onAplicar={ev=>{const cur=eventos.find(e=>e.id===det.id);aplicarSugestaoEscala(cur||det);}} onClose={()=>setRosterPanel(null)} waEscala={waEscala}/>
+            :<button onClick={()=>abrirSugestaoEscala(det)}
+                style={{display:"flex",alignItems:"center",gap:7,background:"#EFF6FF",border:"1px solid #BFDBFE",borderRadius:8,padding:"8px 14px",fontSize:13,fontWeight:600,color:"#1D4ED8",cursor:"pointer",fontFamily:"inherit",marginBottom:12,width:"100%"}}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                Sugerir escala
+              </button>
+          )}
           <div style={{fontWeight:700,color:"var(--text)",fontSize:14,marginBottom:10}}> Equipe {det.equipe.length>0&&<span style={{color:"var(--text2)",fontWeight:400,fontSize:12}}>({det.equipe.length})</span>}</div>
           <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:18}}>
             {[...det.equipe].sort((a,b)=>{const fa=fl(a.freelancerId);const fb=fl(b.freelancerId);return(fa?.nome||"").localeCompare(fb?.nome||"","pt-BR");}).map((m,idx)=>{
@@ -4584,7 +4845,7 @@ function AbaRelatorios({eventos,setEventos,freelancers,funcoes,userId}){
         <span style={{fontSize:14,fontWeight:800,color:"var(--text)"}}>R$ {tGeral.toFixed(2).replace(".",",")}</span>
       </div>}
       <Modal open={waModal} onClose={()=>setWaModal(false)} title="Cobrar via WhatsApp">
-        {(()=>{const pend=filt.filter(r=>!r.pago&&r.freelancer?.telefone);const porFl={};pend.forEach(r=>{if(!porFl[r.freelancer.id])porFl[r.freelancer.id]={freelancer:r.freelancer,items:[]};porFl[r.freelancer.id].items.push(r);});const grupos=Object.values(porFl);if(!grupos.length)return <div style={{color:"var(--text3)",fontSize:13}}>Nenhum pendente com telefone.</div>;return <div style={{display:"flex",flexDirection:"column",gap:10}}>{grupos.map(({freelancer:f,items})=>{const tot=items.reduce((s,r)=>s+r.cache,0);const lista=items.map(r=>`• ${r.eventoNome} (${fmtDate(r.data)}) — R$ ${r.cache.toFixed(2).replace(".",",")} [${r.funcao}]`).join("\n");const msg=`Olá, *${f.nome}*! 👋\n\nCachês pendentes:\n\n${lista}\n\n💰 *Total: R$ ${tot.toFixed(2).replace(".",",")}*${f.pix?`\n\n💳 PIX: *${f.pix}*`:""}\n\nObrigado! 🙏`;const url=`https://wa.me/55${limparTel(f.telefone)}?text=${encodeURIComponent(msg)}`;return(<div key={f.id} style={{background:"var(--bg)",borderRadius:10,padding:12,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><Avatar nome={f.nome} size={38}/><div style={{flex:1}}><div style={{fontWeight:700,color:"var(--text)",fontSize:14}}>{f.nome}</div><div style={{fontSize:11,color:"var(--text3)"}}>{items.length} evento(s) · <span style={{color:"var(--warning)",fontWeight:700}}>R$ {tot.toFixed(2).replace(".",",")}</span></div></div><a href={url} target="_blank" rel="noopener noreferrer" style={{display:"inline-flex",alignItems:"center",gap:6,background:"linear-gradient(135deg,#25d366,#128c7e)",borderRadius:10,padding:"9px 16px",color:"#fff",fontSize:13,fontWeight:700,textDecoration:"none",fontFamily:"inherit"}}>💬 Enviar</a></div>);})}</div>;})()}
+        {(()=>{const pend=filt.filter(r=>!r.pago&&r.freelancer?.telefone);const porFl={};pend.forEach(r=>{if(!porFl[r.freelancer.id])porFl[r.freelancer.id]={freelancer:r.freelancer,items:[]};porFl[r.freelancer.id].items.push(r);});const grupos=Object.values(porFl);if(!grupos.length)return <div style={{color:"var(--text3)",fontSize:13}}>Nenhum pendente com telefone.</div>;const tplLote=_getTpl("caches_pendentes_lote");if(tplLote&&tplLote.ativo===false)return <div style={{color:"var(--text3)",fontSize:13}}>Mensagem de cobrança desativada.</div>;return <div style={{display:"flex",flexDirection:"column",gap:10}}>{grupos.map(({freelancer:f,items})=>{const tot=items.reduce((s,r)=>s+r.cache,0);const lista=items.map(r=>`• ${r.eventoNome} (${fmtDate(r.data)}) — R$ ${r.cache.toFixed(2).replace(".",",")} [${r.funcao}]`).join("\n");const msg=renderTemplateFrontend(tplLote?.corpo||_TPLDEF.caches_pendentes_lote.corpo,{nome:f.nome,lista_eventos:lista,total:tot.toFixed(2).replace(".",","),pix_linha:f.pix?`💳 PIX: *${f.pix}*`:"",pix:f.pix||""});const url=`https://wa.me/55${limparTel(f.telefone)}?text=${encodeURIComponent(msg)}`;return(<div key={f.id} style={{background:"var(--bg)",borderRadius:10,padding:12,display:"flex",alignItems:"center",gap:10,flexWrap:"wrap"}}><Avatar nome={f.nome} size={38}/><div style={{flex:1}}><div style={{fontWeight:700,color:"var(--text)",fontSize:14}}>{f.nome}</div><div style={{fontSize:11,color:"var(--text3)"}}>{items.length} evento(s) · <span style={{color:"var(--warning)",fontWeight:700}}>R$ {tot.toFixed(2).replace(".",",")}</span></div></div><a href={url} target="_blank" rel="noopener noreferrer" style={{display:"inline-flex",alignItems:"center",gap:6,background:"linear-gradient(135deg,#25d366,#128c7e)",borderRadius:10,padding:"9px 16px",color:"#fff",fontSize:13,fontWeight:700,textDecoration:"none",fontFamily:"inherit"}}>💬 Enviar</a></div>);})}</div>;})()}
       </Modal>
 
       {/* Modal PDF Cachês Pendentes */}
@@ -7006,6 +7267,208 @@ function AbaInicio({eventos,freelancers,loading,setAba}){
   );
 }
 
+// ── AbaTemplates — editor de mensagens WhatsApp ─────────────────────────────
+function AbaTemplates({adminId,eventos}){
+  const [templates,setTemplates]=React.useState([]);
+  const [sel,setSel]=React.useState(null);
+  const [corpo,setCorpo]=React.useState("");
+  const [prevText,setPrevText]=React.useState("");
+  const [evSel,setEvSel]=React.useState("");
+  const [saving,setSaving]=React.useState(false);
+  const [feedback,setFeedback]=React.useState(null); // {tipo:"ok"|"erro",msg:string}
+  const [carregando,setCarregando]=React.useState(true);
+
+  const headers={headers:{"bypass-tunnel-reminder":"true","x-api-secret":WA_SECRET,"x-admin-id":adminId}};
+  const url=WA_SERVER_URL;
+
+  async function load(){
+    setCarregando(true);
+    try{
+      const r=await fetch(`${url}/api/templates?adminId=${adminId}`,headers);
+      const arr=await r.json();
+      setTemplates(arr);
+      if(!sel&&arr.length>0) setSel(arr[0].chave);
+    }catch(e){setFeedback({tipo:"erro",msg:"Falha ao carregar mensagens."});}
+    finally{setCarregando(false);}
+  }
+
+  React.useEffect(()=>{load();},[adminId]);
+
+  // Sincroniza corpo com template selecionado
+  React.useEffect(()=>{
+    if(!sel)return;
+    const t=templates.find(t=>t.chave===sel);
+    if(t)setCorpo(t.corpo||"");
+  },[sel,templates]);
+
+  // Atualiza preview ao mudar corpo ou evento
+  React.useEffect(()=>{
+    if(!corpo||!sel)return;
+    const ev=evSel?eventos.find(e=>String(e.id)===evSel):null;
+    setPrevText(renderTemplateFrontend(corpo,_mockVars(sel,ev)));
+  },[corpo,sel,evSel,eventos]);
+
+  function _mockVars(chave,ev){
+    const nome="Ana Silva",evento=ev?.nome||"Festa da Empresa",data=ev?.data?fmtDate(ev.data):"15/09/2026",hora_inicio=ev?.horaInicio||"14:00",hora_fim=ev?.horaFim||"20:00",local=ev?.local||"Salão Principal",funcao="Animador(a)",cache="350,00",pix_linha="💳 PIX: *chave@email.com*",pix="chave@email.com",total="700,00",lista_eventos="• Festa (15/09) — R$ 350,00 [Animador]",data_extenso="SEGUNDA-FEIRA (15/09)",blocos_eventos="*Festa da Empresa*\n📍 Salão\n⏰ 14:00 — 20:00\n@555511999999999 - Animador",link_feedback="https://escalafesta.netlify.app/feedback";
+    return{nome,evento,data,hora_inicio,hora_fim,local,funcao,cache,pix_linha,pix,total,lista_eventos,data_extenso,blocos_eventos,link_feedback};
+  }
+
+  async function salvar(){
+    if(!corpo.trim()){setFeedback({tipo:"erro",msg:"O corpo não pode ser vazio."});return;}
+    const tpl=templates.find(t=>t.chave===sel);
+    const vars=tpl?.variaveis_disponiveis||[];
+    const usados=[...corpo.matchAll(/\{\{(\w+)\}\}/g)].map(m=>`{{${m[1]}}}`);
+    const desc=usados.filter(v=>!vars.includes(v));
+    if(desc.length){setFeedback({tipo:"erro",msg:`Variáveis não reconhecidas: ${desc.join(", ")}`});return;}
+    setSaving(true);setFeedback(null);
+    try{
+      const r=await fetch(`${url}/api/templates/${sel}?adminId=${adminId}`,{method:"PUT",...headers,headers:{...headers.headers,"Content-Type":"application/json"},body:JSON.stringify({corpo:corpo.trim(),updatedBy:adminId})});
+      if(!r.ok){const e=await r.json();throw new Error(e.error||"Erro ao salvar");}
+      // Atualiza cache local
+      _sfTemplates[sel]={...(_sfTemplates[sel]||{}),corpo:corpo.trim(),ativo:tpl?.ativo!==false};
+      setFeedback({tipo:"ok",msg:"Salvo com sucesso."});
+      await load();
+    }catch(e){setFeedback({tipo:"erro",msg:e.message});}
+    finally{setSaving(false);}
+  }
+
+  async function restaurar(){
+    if(!window.confirm(`Restaurar o texto padrão de "${sel}"?`))return;
+    setFeedback(null);
+    try{
+      const r=await fetch(`${url}/api/templates/${sel}?adminId=${adminId}`,{method:"DELETE",...headers});
+      if(!r.ok){const e=await r.json();throw new Error(e.error||"Erro ao restaurar");}
+      delete _sfTemplates[sel];
+      setFeedback({tipo:"ok",msg:"Padrão restaurado."});
+      await load();
+    }catch(e){setFeedback({tipo:"erro",msg:e.message});}
+  }
+
+  async function toggleAtivo(){
+    const tpl=templates.find(t=>t.chave===sel);if(!tpl)return;
+    const novoCorpo=tpl.corpo||(tpl.ativo===false?_TPLDEF[sel]?.corpo||"":"");
+    setSaving(true);setFeedback(null);
+    try{
+      await fetch(`${url}/api/templates/${sel}?adminId=${adminId}`,{method:"PUT",...headers,headers:{...headers.headers,"Content-Type":"application/json"},body:JSON.stringify({corpo:novoCorpo,ativo:!tpl.ativo,updatedBy:adminId})});
+      _sfTemplates[sel]={...(_sfTemplates[sel]||{}),ativo:!tpl.ativo};
+      setFeedback({tipo:"ok",msg:tpl.ativo?"Mensagem desativada.":"Mensagem ativada."});
+      await load();
+    }catch(e){setFeedback({tipo:"erro",msg:e.message});}
+    finally{setSaving(false);}
+  }
+
+  function inserirVar(v){
+    const ta=document.getElementById("tpl-editor");if(!ta)return;
+    const s=ta.selectionStart,e=ta.selectionEnd;
+    const novo=corpo.slice(0,s)+v+corpo.slice(e);
+    setCorpo(novo);
+    setTimeout(()=>{ta.focus();ta.setSelectionRange(s+v.length,s+v.length);},10);
+  }
+
+  const selTpl=templates.find(t=>t.chave===sel);
+  const isCustom=!!(selTpl&&selTpl.id); // tem id do banco = foi customizado
+  const isDormant=sel==="lembrete_vespera"||sel==="feedback_pos_evento";
+
+  if(carregando)return <div style={{padding:32,color:"var(--text2)"}}>Carregando...</div>;
+
+  return(
+    <div style={{padding:"24px",maxWidth:900,margin:"0 auto"}}>
+      <div style={{marginBottom:20}}>
+        <h2 style={{fontSize:18,fontWeight:700,color:"var(--text)",margin:"0 0 4px"}}>Mensagens WhatsApp</h2>
+        <p style={{fontSize:13,color:"var(--text2)",margin:0}}>Edite os textos enviados automaticamente ou via botão. O envio e os destinatários não mudam.</p>
+      </div>
+
+      <div style={{display:"flex",gap:20,alignItems:"flex-start",flexWrap:"wrap"}}>
+        {/* Lista de templates */}
+        <div style={{width:200,flexShrink:0}}>
+          {templates.map(t=>(
+            <button key={t.chave} onClick={()=>{setSel(t.chave);setFeedback(null);}} style={{display:"block",width:"100%",textAlign:"left",padding:"9px 12px",marginBottom:4,borderRadius:8,border:"none",background:sel===t.chave?"rgba(12,110,126,.15)":"transparent",color:sel===t.chave?"var(--primary)":"var(--text2)",fontWeight:sel===t.chave?600:400,fontSize:13,cursor:"pointer",fontFamily:"inherit",borderLeft:sel===t.chave?"3px solid var(--primary)":"3px solid transparent",transition:"all .12s"}}>
+              <div style={{display:"flex",alignItems:"center",gap:6,justifyContent:"space-between"}}>
+                <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{t.nome}</span>
+                {t.ativo===false&&<span style={{fontSize:10,color:"var(--danger)",flexShrink:0}}>off</span>}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* Editor */}
+        {selTpl&&(
+          <div style={{flex:1,minWidth:280}}>
+            <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,flexWrap:"wrap"}}>
+              <h3 style={{fontSize:15,fontWeight:700,color:"var(--text)",margin:0,flex:1}}>{selTpl.nome}</h3>
+              {isDormant&&<span style={{fontSize:11,background:"#FFF7ED",color:"#EA580C",border:"1px solid #FED7AA",borderRadius:6,padding:"2px 8px"}}>sem envio implementado</span>}
+              {isCustom&&selTpl.updated_at&&(
+                <span style={{fontSize:11,color:"var(--text3)"}}>
+                  Editado {new Date(selTpl.updated_at).toLocaleDateString("pt-BR")}
+                </span>
+              )}
+            </div>
+
+            {/* Variáveis disponíveis */}
+            <div style={{marginBottom:10}}>
+              <div style={{fontSize:11,fontWeight:600,color:"var(--text2)",marginBottom:6,textTransform:"uppercase",letterSpacing:"0.05em"}}>Variaveis disponíveis (clique para inserir)</div>
+              <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                {(selTpl.variaveis_disponiveis||[]).map(v=>(
+                  <button key={v} onClick={()=>inserirVar(v)} style={{fontSize:11,background:"var(--surface)",border:"1px solid var(--border)",borderRadius:5,padding:"2px 8px",color:"var(--primary)",cursor:"pointer",fontFamily:"monospace",fontWeight:600}}>{v}</button>
+                ))}
+              </div>
+              {sel==="escala_diaria_grupo"&&<div style={{fontSize:11,color:"var(--text3)",marginTop:6}}>{"{{blocos_eventos}}"} = lista gerada automaticamente com os eventos e membros do dia.</div>}
+              {sel==="caches_pendentes_lote"&&<div style={{fontSize:11,color:"var(--text3)",marginTop:6}}>{"{{lista_eventos}}"} = lista gerada automaticamente com todos os cachês pendentes do freelancer.</div>}
+            </div>
+
+            {/* Editor de texto */}
+            <textarea
+              id="tpl-editor"
+              value={corpo}
+              onChange={e=>setCorpo(e.target.value)}
+              rows={10}
+              style={{width:"100%",boxSizing:"border-box",fontFamily:"monospace",fontSize:13,padding:"10px 12px",borderRadius:8,border:"1px solid var(--border)",background:"var(--surface)",color:"var(--text)",resize:"vertical",lineHeight:1.55}}
+            />
+
+            {/* Feedback de validação */}
+            {feedback&&(
+              <div style={{marginTop:8,padding:"8px 12px",borderRadius:7,background:feedback.tipo==="ok"?"var(--success-light)":"var(--danger-light)",color:feedback.tipo==="ok"?"var(--success)":"var(--danger)",fontSize:13,fontWeight:500}}>
+                {feedback.msg}
+              </div>
+            )}
+
+            {/* Botões */}
+            <div style={{display:"flex",gap:8,marginTop:12,flexWrap:"wrap"}}>
+              <button onClick={salvar} disabled={saving} style={{background:"var(--primary)",color:"#fff",border:"none",borderRadius:8,padding:"8px 18px",fontSize:13,fontWeight:600,cursor:"pointer",fontFamily:"inherit",opacity:saving?.6:1}}>
+                {saving?"Salvando...":"Salvar"}
+              </button>
+              {isCustom&&(
+                <button onClick={restaurar} disabled={saving} style={{background:"var(--surface)",color:"var(--text2)",border:"1px solid var(--border)",borderRadius:8,padding:"8px 14px",fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
+                  Restaurar padrao
+                </button>
+              )}
+              <button onClick={toggleAtivo} disabled={saving} style={{background:"var(--surface)",color:selTpl.ativo===false?"var(--success)":"var(--danger)",border:`1px solid ${selTpl.ativo===false?"var(--success)":"var(--danger)"}44`,borderRadius:8,padding:"8px 14px",fontSize:13,cursor:"pointer",fontFamily:"inherit"}}>
+                {selTpl.ativo===false?"Ativar":"Desativar"}
+              </button>
+            </div>
+
+            {/* Preview */}
+            <div style={{marginTop:20}}>
+              <div style={{fontSize:11,fontWeight:600,color:"var(--text2)",textTransform:"uppercase",letterSpacing:"0.05em",marginBottom:8,display:"flex",alignItems:"center",gap:10}}>
+                Pre-visualizacao
+                {eventos.length>0&&(
+                  <select value={evSel} onChange={e=>setEvSel(e.target.value)} style={{fontSize:11,border:"1px solid var(--border)",borderRadius:5,padding:"2px 6px",background:"var(--surface)",color:"var(--text)",fontFamily:"inherit"}}>
+                    <option value="">— evento de exemplo —</option>
+                    {[...eventos].sort((a,b)=>b.data?.localeCompare(a.data||"")||0).slice(0,20).map(ev=>(
+                      <option key={ev.id} value={String(ev.id)}>{ev.nome} ({fmtDate(ev.data)})</option>
+                    ))}
+                  </select>
+                )}
+              </div>
+              <pre style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:8,padding:"12px 14px",fontSize:13,lineHeight:1.6,whiteSpace:"pre-wrap",wordBreak:"break-word",color:"var(--text)",margin:0,maxHeight:260,overflowY:"auto"}}>{prevText}</pre>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function App(){
   const addToast=useToast();
   const[user,setUser]=useState(undefined);
@@ -7023,10 +7486,13 @@ function App(){
   const[mob,setMob]=useState(typeof window!=="undefined"&&window.innerWidth<640);
   const[modalPlano,setModalPlano]=useState(false);
   const[modalSyncOpen,setModalSyncOpen]=useState(false);
+  const[rosterTarget,setRosterTarget]=useState(null); // eventId pendente de sugestão vindo da Triagem
   const saveTimer=useRef({});
 
   const carregarDados=async(userId)=>{
     setCarregando(true);
+    // Carrega templates de mensagem em paralelo (silencioso — fallback local se falhar)
+    loadTemplatesFrontend(userId).catch(()=>{});
     try{
       const[fls,evs,dsp,fns,trs,bns,pergs]=await Promise.all([
         cloudLoad(userId,"freelancers"),
@@ -7204,9 +7670,9 @@ function App(){
               Sincronizando...
             </div>}
             {aba==="inicio"&&<AbaInicio eventos={ev} freelancers={fl} loading={carregando} setAba={setAba}/>}
-            {aba==="eventos"&&<AbaEventos eventos={ev} setEventos={setEv} freelancers={fl} disponibilidade={disp} funcoes={funcoes} userId={user.id}/>}
+            {aba==="eventos"&&<AbaEventos eventos={ev} setEventos={setEv} freelancers={fl} disponibilidade={disp} funcoes={funcoes} userId={user.id} rosterTarget={rosterTarget} onRosterTargetConsumed={()=>setRosterTarget(null)}/>}
             {aba==="checklist"&&<ChecklistPage eventos={ev} tenantId={user.id}/>}
-            {aba==="triagem"&&<AbaTriagem tenantId={user.id}/>}
+            {aba==="triagem"&&<AbaTriagem tenantId={user.id} onSugerirEscala={(eid)=>{setRosterTarget(eid);setAba("eventos");}}/>}
             {aba==="modelos"&&<AbaModelos tenantId={user.id}/>}
             {aba==="equipe"&&<AbaEquipeAdmin freelancers={fl} setFreelancers={setFlS} eventos={ev} funcoes={funcoes} adminUser={user} maxFl={maxFl} onUpgrade={()=>setModalPlano(true)} temSecretaria={temSecretaria}/>}
             {aba==="funcoes"&&<AbaFuncoes funcoes={funcoes} setFuncoes={setFuncoesS}/>}
@@ -7223,6 +7689,7 @@ function App(){
     setPerfil(p=>({...p,plano_cancelado_em:new Date().toISOString()}));
   }
 }}/>}
+            {aba==="mensagens"&&<AbaTemplates adminId={user.id} eventos={ev}/>}
             {aba==="ranking"&&<AbaRanking freelancers={fl} eventos={ev} adminId={user.id}/>}
             {aba==="relatorios"&&<AbaRelatorios eventos={ev} setEventos={setEv} freelancers={fl} funcoes={funcoes} userId={user.id}/>}
           </main>
@@ -7236,9 +7703,9 @@ function App(){
             Sincronizando...
           </div>}
           {aba==="inicio"&&<AbaInicio eventos={ev} freelancers={fl} loading={carregando} setAba={setAba}/>}
-          {aba==="eventos"&&<AbaEventos eventos={ev} setEventos={setEv} freelancers={fl} disponibilidade={disp} funcoes={funcoes} userId={user.id}/>}
+          {aba==="eventos"&&<AbaEventos eventos={ev} setEventos={setEv} freelancers={fl} disponibilidade={disp} funcoes={funcoes} userId={user.id} rosterTarget={rosterTarget} onRosterTargetConsumed={()=>setRosterTarget(null)}/>}
           {aba==="checklist"&&<ChecklistPage eventos={ev} tenantId={user.id}/>}
-          {aba==="triagem"&&<AbaTriagem tenantId={user.id}/>}
+          {aba==="triagem"&&<AbaTriagem tenantId={user.id} onSugerirEscala={(eid)=>{setRosterTarget(eid);setAba("eventos");}}/>}
           {aba==="modelos"&&<AbaModelos tenantId={user.id}/>}
           {aba==="equipe"&&<AbaEquipeAdmin freelancers={fl} setFreelancers={setFlS} eventos={ev} funcoes={funcoes} adminUser={user} maxFl={maxFl} onUpgrade={()=>setModalPlano(true)} temSecretaria={temSecretaria}/>}
           {aba==="funcoes"&&<AbaFuncoes funcoes={funcoes} setFuncoes={setFuncoesS}/>}
@@ -7255,6 +7722,7 @@ function App(){
     setPerfil(p=>({...p,plano_cancelado_em:new Date().toISOString()}));
   }
 }}/>}
+          {aba==="mensagens"&&<AbaTemplates adminId={user.id} eventos={ev}/>}
           {aba==="relatorios"&&<AbaRelatorios eventos={ev} setEventos={setEv} freelancers={fl} funcoes={funcoes} userId={user.id}/>}
         </main>
       )}
