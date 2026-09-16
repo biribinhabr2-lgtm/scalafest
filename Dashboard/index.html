@@ -516,35 +516,12 @@ function _sfParseTitulo(titulo) {
   });
   return{blocos,cliente,restos:corpo};
 }
-function _sfBigram(a,b) {
-  if(!a||!b)return 0;if(a===b)return 1;
-  function bg(s){const mp=new Map();for(let i=0;i<s.length-1;i++){const k=s.slice(i,i+2);mp.set(k,(mp.get(k)||0)+1);}return mp;}
-  const ma=bg(a),mb=bg(b);let inter=0;
-  for(const[k,v]of ma)inter+=Math.min(v,mb.get(k)||0);
-  const ta=Math.max(a.length-1,0),tb=Math.max(b.length-1,0);
-  return ta+tb===0?0:(2*inter)/(ta+tb);
-}
 function _sfMatchServico(nomeNorm,allKw) {
   if(!nomeNorm||!allKw||!allKw.length)return null;
   const ex=allKw.filter(k=>k.keyword===nomeNorm);
-  if(ex.length===1)return ex[0].serviceId;
-  if(ex.length>1){const ids=new Set(ex.map(k=>k.serviceId));return ids.size===1?[...ids][0]:null;}
-  const MIN=3,cont=allKw.filter(k=>k.keyword.length>=MIN&&nomeNorm.length>=MIN&&(nomeNorm.includes(k.keyword)||k.keyword.includes(nomeNorm)));
-  if(cont.length>0){
-    const bySvc=new Map();for(const k of cont){if(!bySvc.has(k.serviceId))bySvc.set(k.serviceId,[]);bySvc.get(k.serviceId).push(k.keyword);}
-    if(bySvc.size===1)return[...bySvc.keys()][0];
-    let bestId=null,bestLen=-1,amb=false;
-    for(const[sid,kws]of bySvc){const mx=Math.max(...kws.map(k=>k.length));if(mx>bestLen){bestLen=mx;bestId=sid;amb=false;}else if(mx===bestLen)amb=true;}
-    return amb?null:bestId;
-  }
-  const scored=allKw.map(k=>({serviceId:k.serviceId,score:_sfBigram(nomeNorm,k.keyword)})).filter(r=>r.score>=0.6);
-  if(!scored.length)return null;
-  scored.sort((a,b)=>b.score-a.score);
-  if(scored.length>=2&&scored[0].score-scored[1].score<0.15){
-    const top2=new Set(scored.slice(0,2).map(r=>r.serviceId));
-    if(top2.size>1)return null;
-  }
-  return scored[0].serviceId;
+  if(!ex.length)return null;
+  const ids=new Set(ex.map(k=>k.serviceId));
+  return ids.size===1?[...ids][0]:null;
 }
 async function _sfAplicarKit(tenantId,eventId,serviceId) {
   try{
@@ -1857,9 +1834,10 @@ function AbaTriagem({tenantId,onSugerirEscala}){
         if(chosenId!==blocos[i].service_id){
           // Atualizar event_services
           await sb.from('event_services').update({service_id:chosenId}).eq('id',blocos[i].id);
-          // Aprender keyword
+          // Aprender keyword — usa nome sem duração para poder casar em eventos futuros
           if(chosenId&&blocos[i].nome_bruto){
-            const kw=_sfNormNome(blocos[i].nome_bruto);
+            const{semDuracao:_ksd}=_sfExtrairDuracao(blocos[i].nome_bruto);
+            const kw=_sfNormNome(_ksd||blocos[i].nome_bruto);
             if(kw.length>=2){
               await sb.from('service_keywords').upsert({service_id:chosenId,keyword:kw,origem:'aprendido'},{onConflict:'service_id,keyword',ignoreDuplicates:true});
             }
@@ -2665,6 +2643,7 @@ function PainelSugestaoEscala({loading,data,erro,onRetry,sel,setSel,expandido,se
   );
   if(!data)return null;
   const vagas=data.vagas||[];
+  const avisoRotacao=data.aviso_rotacao||null;
   const diag=data._diag||null;
   const jaNoTime=fid=>(ev.equipe||[]).some(m=>String(m.freelancerId)===String(fid));
   const temParaAplicar=Object.entries(sel).some(([,fid])=>!jaNoTime(fid));
@@ -2677,6 +2656,7 @@ function PainelSugestaoEscala({loading,data,erro,onRetry,sel,setSel,expandido,se
         </span>
         <button onClick={onClose} style={{background:"none",border:"none",cursor:"pointer",color:"var(--text3)",fontSize:16,padding:0,lineHeight:1}}>×</button>
       </div>
+      {avisoRotacao&&<div style={{background:"#FFFBEB",border:"1px solid #FDE68A",borderRadius:7,padding:"6px 10px",marginBottom:8,fontSize:11,color:"#92400E"}}>⚠ {avisoRotacao}</div>}
       {vagas.length===0&&(
         <div style={{fontSize:12,color:"var(--text3)",textAlign:"center",padding:"8px 0"}}>
           <div style={{marginBottom:6}}>Nenhuma vaga mapeada para este evento.</div>
@@ -2753,9 +2733,10 @@ function PainelSugestaoEscala({loading,data,erro,onRetry,sel,setSel,expandido,se
                 <div style={{display:"flex",alignItems:"center",gap:7}}>
                   <Avatar nome={selCand.nome} size={26}/>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:12,fontWeight:700,color:jaEscalado?"var(--success)":"var(--text)",display:"flex",alignItems:"center",gap:4}}>
+                    <div style={{fontSize:12,fontWeight:700,color:jaEscalado?"var(--success)":"var(--text)",display:"flex",alignItems:"center",gap:4,flexWrap:"wrap"}}>
                       {selCand.nome}
                       {jaEscalado&&<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>}
+                      {selCand.rotacao&&<span style={{background:"#FEF3C7",color:"#92400E",border:"1px solid #FDE68A",borderRadius:4,fontSize:9,padding:"1px 5px",fontWeight:700,flexShrink:0}}>↻ rotação</span>}
                     </div>
                     <div style={{fontSize:10,color:"var(--text3)",marginTop:1,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{(selCand.motivos||[]).join(" · ")||"—"}</div>
                   </div>

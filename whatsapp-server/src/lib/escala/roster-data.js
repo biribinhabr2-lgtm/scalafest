@@ -38,9 +38,8 @@ async function loadContext(eventId, tenantId) {
   flsComUserId.forEach(f => { userIdToFlId[f.userId] = String(f.id); });
 
   // Fase 2 — dados dependentes do evento e dos freelancers em paralelo
-  const [dispCloud, feedbackRows, histResult, conflitosResult, semanaResult, equipeAtual] = await Promise.all([
+  const [dispCloud, histResult, conflitosResult, semanaResult, equipeAtual] = await Promise.all([
     _loadDispCloud(userIds),
-    _loadFeedbacks(userIds, tenantId),
     _loadHistorico(tenantId),
     _loadConflitos(tenantId, eventRow.data, eventId, eventRow.horaInicio, eventRow.horaFim),
     _loadSemana(tenantId, eventRow.data, eventId),
@@ -61,19 +60,6 @@ async function loadContext(eventId, tenantId) {
   for (const flId of noUserFlIds) {
     if (adminDispBlob && adminDispBlob[flId]) {
       disponibilidade[flId] = adminDispBlob[flId];
-    }
-  }
-
-  // ── Feedbacks ──────────────────────────────────────────────────────────────
-  const feedbacks = {};
-  for (const { userId, dados } of feedbackRows) {
-    const flId = userIdToFlId[userId];
-    if (!flId || !Array.isArray(dados)) continue;
-    const notas = dados
-      .map(fb => fb?.respostas?.nota)
-      .filter(n => typeof n === 'number' && n >= 0 && n <= 10);
-    if (notas.length > 0) {
-      feedbacks[flId] = { avgNote: notas.reduce((s, n) => s + n, 0) / notas.length };
     }
   }
 
@@ -112,7 +98,6 @@ async function loadContext(eventId, tenantId) {
     freelancers:      flAtivos,
     disponibilidade,
     historico,
-    feedbacks,
     conflitos,
     semana,
     jaEscalados,
@@ -224,18 +209,6 @@ async function _loadDispCloud(userIds) {
     .from('sf_dados')
     .select('user_id, dados')
     .eq('tipo', 'disponibilidade')
-    .in('user_id', userIds);
-
-  if (error) throw error;
-  return (data || []).map(r => ({ userId: r.user_id, dados: r.dados }));
-}
-
-async function _loadFeedbacks(userIds, tenantId) {
-  if (!userIds.length) return [];
-  const { data, error } = await supabase
-    .from('sf_dados')
-    .select('user_id, dados')
-    .eq('tipo', `feedbacks_${tenantId}`)
     .in('user_id', userIds);
 
   if (error) throw error;

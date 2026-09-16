@@ -18,15 +18,16 @@ async function sugerir(req, res) {
   }
 
   try {
-    const ctx   = await loadContext(eventId, adminId);
-    const w     = weights ? { ...DEFAULT_WEIGHTS, ...weights } : DEFAULT_WEIGHTS;
-    const vagas = sugerirEscala(ctx, w);
+    const ctx    = await loadContext(eventId, adminId);
+    const w      = weights ? { ...DEFAULT_WEIGHTS, ...weights } : DEFAULT_WEIGHTS;
+    const result = sugerirEscala(ctx, w);
 
     res.json({
       eventId,
-      event:         ctx.event,
-      vagas,
-      weights:       w,
+      event:          ctx.event,
+      vagas:          result.vagas,
+      aviso_rotacao:  result.aviso_rotacao || null,
+      weights:        w,
       _diag: {
         totalFreelancers: ctx.freelancers.length,
         requiredRoles:    ctx.requiredRoles,
