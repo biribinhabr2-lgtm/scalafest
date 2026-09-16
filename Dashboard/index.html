@@ -1591,7 +1591,14 @@ function AbaServicos({tenantId,funcoes}){
       addToast(form.id?"Serviço atualizado":"Serviço criado","ok");
       await loadServices();
       setForm(null);
-    }catch(e){addToast("Erro ao salvar: "+(e.message||""),"erro");}
+    }catch(e){
+      const msg=(e.message||"");
+      if(msg.includes("duplicate key")||msg.includes("services_nome_uniq")){
+        addToast(`Já existe um serviço com o nome "${form.nome?.trim()}"` ,"erro");
+      }else{
+        addToast("Erro ao salvar: "+msg,"erro");
+      }
+    }
     setSaving(false);
   };
 
@@ -1879,7 +1886,13 @@ function AbaTriagem({tenantId,onSugerirEscala}){
       setSvcSel(criarModal.eventId,criarModal.blocoIdx,svc.id);
       addToast(`Serviço "${svc.nome}" criado`,'ok');
       setCriarModal(null);setNovoNome('');
-    }catch(e){addToast('Erro: '+e.message,'erro');}
+    }catch(e){
+      const msg=e.message||'';
+      if(msg.includes('duplicate key')||msg.includes('services_nome_uniq')){
+        addToast(`Serviço "${novoNome.trim()}" já existe — selecione-o na lista`,'aviso');
+        setCriarModal(null);setNovoNome('');
+      }else{addToast('Erro: '+msg,'erro');}
+    }
   };
 
   const fmtD=d=>{if(!d)return'';const[y,m,dv]=d.split('-');return`${dv}/${m}/${y}`;};
