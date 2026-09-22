@@ -22,6 +22,9 @@ async function sugerir(req, res) {
     const w      = weights ? { ...DEFAULT_WEIGHTS, ...weights } : DEFAULT_WEIGHTS;
     const result = sugerirEscala(ctx, w);
 
+    const serviceIds    = ctx.eventServiceIds   || [];
+    const requiredRoles = ctx.requiredRoles      || [];
+
     res.json({
       eventId,
       event:          ctx.event,
@@ -29,10 +32,21 @@ async function sugerir(req, res) {
       aviso_rotacao:  result.aviso_rotacao || null,
       weights:        w,
       _diag: {
-        totalFreelancers: ctx.freelancers.length,
-        requiredRoles:    ctx.requiredRoles,
-        serviceIds:       ctx.eventServiceIds,
-        serviceNames:     ctx.eventServiceNames,
+        totalFreelancers:  ctx.freelancers.length,
+        requiredRoles,
+        serviceIds,
+        serviceNames:      ctx.eventServiceNames || [],
+        // Flags de causa raiz para o frontend mostrar mensagem correta
+        semEventServices:  serviceIds.length === 0,
+        semServiceRoles:   serviceIds.length > 0 && requiredRoles.length === 0,
+        // Funil por função (útil quando vagas existem mas sugeridos=0)
+        funil: result.vagas.map(v => ({
+          funcao:     v.funcao,
+          candidatos: v.candidatos.length,
+          elegiveis:  v.candidatos.filter(c => !c.eliminado).length,
+          eliminados: v.candidatos.filter(c =>  c.eliminado).length,
+          sugeridos:  v.sugeridos.length,
+        })),
       },
     });
   } catch (err) {

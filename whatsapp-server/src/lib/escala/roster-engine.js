@@ -235,7 +235,8 @@ function rankCandidatos(funcao, ctx, w = DEFAULT_WEIGHTS, excluidos = new Set())
 
     // Filtros estruturais (não geram motivo — o candidato não aparece)
     if (fl.ativo === false) continue;
-    if (!Array.isArray(fl.funcoes) || !fl.funcoes.includes(funcao)) continue;
+    // Comparação com trim() para tolerar espaços extras (ex: "Apoio " vs "Apoio")
+    if (!Array.isArray(fl.funcoes) || !fl.funcoes.map(f => f.trim()).includes(funcao.trim())) continue;
 
     // Filtros eliminatórios situacionais (aparecem no painel como inelegíveis)
     let motivo = null;

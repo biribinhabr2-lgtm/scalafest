@@ -2658,35 +2658,24 @@ function PainelSugestaoEscala({loading,data,erro,onRetry,sel,setSel,expandido,se
       </div>
       {avisoRotacao&&<div style={{background:"#FFFBEB",border:"1px solid #FDE68A",borderRadius:7,padding:"6px 10px",marginBottom:8,fontSize:11,color:"#92400E"}}>⚠ {avisoRotacao}</div>}
       {vagas.length===0&&(
-        <div style={{fontSize:12,color:"var(--text3)",textAlign:"center",padding:"8px 0"}}>
-          <div style={{marginBottom:6}}>Nenhuma vaga mapeada para este evento.</div>
-          {diag&&(
-            <div style={{textAlign:"left",background:"#fff",border:"1px solid #BFDBFE",borderRadius:6,padding:"8px 10px",fontSize:11,color:"#374151",lineHeight:1.7}}>
-              <div><b>Diagnóstico do servidor:</b></div>
-              <div>Freelancers carregados: <b>{diag.totalFreelancers}</b></div>
-              <div>Funções configuradas (service_roles): <b>{diag.requiredRoles&&diag.requiredRoles.length>0?diag.requiredRoles.map(r=>r.funcao).join(", "):"nenhuma"}</b></div>
-              <div>Serviços do evento: <b>{diag.serviceNames&&diag.serviceNames.length>0?diag.serviceNames.join(", "):"nenhum"}</b></div>
-              <div>IDs dos serviços: <b style={{wordBreak:"break-all"}}>{diag.serviceIds&&diag.serviceIds.length>0?diag.serviceIds.join(", "):"nenhum"}</b></div>
-              {diag.requiredRoles&&diag.requiredRoles.length===0&&(
-                <div style={{marginTop:6,color:"#B45309",fontWeight:600}}>
-                  ⚠ service_roles vazio — configure funções na aba Serviços do Dashboard.
-                </div>
-              )}
-              {diag.totalFreelancers===0&&(
-                <div style={{marginTop:6,color:"#B45309",fontWeight:600}}>
-                  ⚠ Nenhum freelancer carregado do banco.
-                </div>
-              )}
-              {diag.serviceIds&&diag.serviceIds.length===0&&tenantId&&(
+        <div style={{fontSize:12,color:"var(--text3)",padding:"4px 0"}}>
+          {/* Caso 1: sem event_services — triagem pendente */}
+          {diag&&diag.semEventServices&&(
+            <div style={{background:"#FFFBEB",border:"1px solid #FDE68A",borderRadius:8,padding:"10px 12px",marginBottom:8}}>
+              <div style={{fontWeight:700,color:"#92400E",marginBottom:4,fontSize:12}}>⚠ Nenhum serviço reconhecido neste evento</div>
+              <div style={{color:"#78350F",lineHeight:1.6,marginBottom:8}}>
+                A triagem ainda não identificou o tipo de serviço. Sem isso o motor não sabe quais funções preencher.
+              </div>
+              {tenantId&&(
                 atribuindo?(
-                  <div style={{marginTop:8,display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
+                  <div style={{display:"flex",gap:6,alignItems:"center",flexWrap:"wrap"}}>
                     <select value={svcEscolhido} onChange={e=>setSvcEscolhido(e.target.value)}
-                      style={{flex:1,minWidth:0,border:"1px solid #D1D5DB",borderRadius:6,padding:"5px 8px",fontSize:11,fontFamily:"inherit",background:"#fff",color:"#111"}}>
+                      style={{flex:1,minWidth:120,border:"1px solid #D1D5DB",borderRadius:6,padding:"5px 8px",fontSize:11,fontFamily:"inherit",background:"#fff",color:"#111"}}>
                       <option value="">— escolher serviço —</option>
                       {(svcList||[]).map(s=><option key={s.id} value={s.id}>{s.nome}</option>)}
                     </select>
                     <button onClick={salvarServico} disabled={salvandoSvc||!svcEscolhido}
-                      style={{background:"#1D4ED8",color:"#fff",border:"none",borderRadius:6,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",opacity:(!svcEscolhido||salvandoSvc)?0.5:1}}>
+                      style={{background:"#D97706",color:"#fff",border:"none",borderRadius:6,padding:"5px 10px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",opacity:(!svcEscolhido||salvandoSvc)?0.5:1}}>
                       {salvandoSvc?"…":"Confirmar"}
                     </button>
                     <button onClick={()=>setAtribuindo(false)}
@@ -2696,13 +2685,40 @@ function PainelSugestaoEscala({loading,data,erro,onRetry,sel,setSel,expandido,se
                   </div>
                 ):(
                   <button onClick={abrirAtribuir}
-                    style={{marginTop:8,background:"#1D4ED8",color:"#fff",border:"none",borderRadius:6,padding:"6px 12px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit",width:"100%"}}>
-                    Atribuir serviço a este evento
+                    style={{background:"#D97706",color:"#fff",border:"none",borderRadius:7,padding:"6px 12px",fontSize:11,fontWeight:700,cursor:"pointer",fontFamily:"inherit"}}>
+                    Atribuir serviço manualmente
                   </button>
                 )
               )}
             </div>
           )}
+          {/* Caso 2: service_id existe mas service_roles está vazio */}
+          {diag&&diag.semServiceRoles&&(
+            <div style={{background:"#FEF2F2",border:"1px solid #FECACA",borderRadius:8,padding:"10px 12px",marginBottom:8}}>
+              <div style={{fontWeight:700,color:"#991B1B",marginBottom:4,fontSize:12}}>⚠ Serviço sem funções configuradas</div>
+              <div style={{color:"#7F1D1D",lineHeight:1.6}}>
+                O serviço <b>{diag.serviceNames&&diag.serviceNames.length>0?diag.serviceNames.join(", "):"deste evento"}</b> não tem funções (service_roles) cadastradas.
+                Edite o serviço na aba <b>Serviços</b> e adicione as funções e quantidade de vagas.
+              </div>
+            </div>
+          )}
+          {/* Caso 3: fallback genérico (sem _diag ou causa desconhecida) */}
+          {(!diag||(diag&&!diag.semEventServices&&!diag.semServiceRoles))&&(
+            <div style={{background:"#F3F4F6",border:"1px solid #E5E7EB",borderRadius:8,padding:"10px 12px",marginBottom:8,color:"#374151"}}>
+              <div style={{fontWeight:700,marginBottom:4,fontSize:12}}>Sem sugestões disponíveis</div>
+              {diag&&<div style={{fontSize:11,lineHeight:1.6}}>
+                Freelancers: <b>{diag.totalFreelancers}</b> · Serviços: <b>{diag.serviceNames&&diag.serviceNames.length>0?diag.serviceNames.join(", "):"nenhum"}</b> · Funções: <b>{diag.requiredRoles&&diag.requiredRoles.length>0?diag.requiredRoles.map(r=>r.funcao).join(", "):"nenhuma"}</b>
+              </div>}
+            </div>
+          )}
+        </div>
+      )}
+      {/* Funil por função quando vagas têm entradas mas sem sugeridos */}
+      {vagas.length>0&&diag&&diag.funil&&diag.funil.some(f=>f.sugeridos===0&&f.candidatos>0)&&(
+        <div style={{background:"#FFFBEB",border:"1px solid #FDE68A",borderRadius:7,padding:"7px 10px",marginBottom:8,fontSize:11,color:"#92400E"}}>
+          {diag.funil.filter(f=>f.sugeridos===0&&f.candidatos>0).map(f=>(
+            <div key={f.funcao}>⚠ <b>{f.funcao}</b>: {f.candidatos} freelancers exercem a função, {f.eliminados} indisponíveis/conflito — {f.elegiveis} elegíveis</div>
+          ))}
         </div>
       )}
       {vagas.map((vaga,vi)=>(
