@@ -7406,14 +7406,31 @@ function AbaWhatsapp({adminId}){
   };
 
   const checkStatus=async()=>{
+    // guarda adminId no momento da chamada para diagnóstico
+    const aid=adminId;
+    if(!aid){
+      setErro("adminId não disponível — recarregue a página.");
+      setStatus("desconectado");stopPolling();return "erro";
+    }
     try{
       const ctrl=new AbortController();
-      const tid=setTimeout(()=>ctrl.abort(),15000); // timeout 15 s por requisição
-      const r=await fetch(`${WA_SERVER_URL}/api/whatsapp/status`,{headers:hdrs(),signal:ctrl.signal});
-      clearTimeout(tid);
-      if(!r.ok) throw new Error("HTTP "+r.status);
+      const tid=setTimeout(()=>ctrl.abort(),15000);
+      let r;
+      try{ r=await fetch(`${WA_SERVER_URL}/api/whatsapp/status`,{headers:hdrs(),signal:ctrl.signal}); }
+      finally{ clearTimeout(tid); }
+
+      // 4xx = erro de configuração definitivo (não melhora com retry)
+      if(!r.ok){
+        const body=await r.json().catch(()=>({}));
+        const msg=body.error||`HTTP ${r.status}`;
+        if(r.status>=400&&r.status<500){
+          setErro(`Erro ${r.status}: ${msg}`);
+          setAcordando(false);setStatus("desconectado");stopPolling();return "erro";
+        }
+        throw new Error(msg); // 5xx → retry
+      }
+
       const d=await r.json();
-      // Servidor respondeu — limpa estado de cold start
       retriesRef.current=0;
       setAcordando(false);
       setErro(null);
@@ -7432,18 +7449,30 @@ function AbaWhatsapp({adminId}){
         setStatus("desconectado");setQr(null);return "desconectado";
       }
     }catch(e){
-      // Cold start do Railway: tenta novamente em 5 s até WA_MAX_RETRIES
+      const isAbort=e.name==="AbortError";
+      const isCors=e instanceof TypeError&&e.message.toLowerCase().includes("fetch");
+      const hint=isAbort?" (timeout 15 s)":isCors?" — provável erro de CORS: verifique se a origem está na allowlist do Railway":"";
+      console.error("[WA] checkStatus falhou:",e.name,e.message,"adminId:",aid,"url:",WA_SERVER_URL);
+
       retriesRef.current+=1;
       setTentativa(retriesRef.current);
+
+      // Erros de CORS nunca vão melhorar com retry — para imediatamente
+      if(isCors&&!isAbort){
+        setAcordando(false);
+        setErro(`Erro de rede: ${e.message}${hint}\n\nURL em uso: ${WA_SERVER_URL}\nOrigem do app: ${location.origin}`);
+        setStatus("desconectado");stopPolling();return "erro";
+      }
+
       if(retriesRef.current<=WA_MAX_RETRIES){
         setAcordando(true);
+        setErro(`Tentativa ${retriesRef.current}/${WA_MAX_RETRIES}: ${e.message}${hint}`);
         stopWakeRetry();
         wakeRetryRef.current=setTimeout(()=>checkStatus(),5000);
       }else{
         setAcordando(false);
-        setErro("Servidor indisponível após "+WA_MAX_RETRIES+" tentativas. Verifique se o Railway está ativo.");
-        setStatus("desconectado");
-        stopPolling();
+        setErro(`Servidor não respondeu após ${WA_MAX_RETRIES} tentativas.\nÚltimo erro: ${e.message}${hint}\nURL: ${WA_SERVER_URL}`);
+        setStatus("desconectado");stopPolling();
       }
       return "erro";
     }
@@ -7582,7 +7611,7 @@ function AbaWhatsapp({adminId}){
       {erro&&(
         <div style={{background:"#450a0a",border:"1px solid #991B1B",borderRadius:10,padding:"12px 16px",marginBottom:16,fontSize:13,color:"#FCA5A5",display:"flex",alignItems:"flex-start",gap:10}}>
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{flexShrink:0,marginTop:1}}><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-          <span style={{flex:1}}>{erro}</span>
+          <span style={{flex:1,whiteSpace:"pre-wrap",wordBreak:"break-all"}}>{erro}</span>
           <button onClick={()=>{setErro(null);retriesRef.current=0;setTentativa(0);checkStatus();}} style={{background:"transparent",border:"none",color:"#FCA5A5",cursor:"pointer",padding:0,flexShrink:0,display:"flex",alignItems:"center",gap:4,fontSize:11,fontFamily:"inherit"}}>
             Tentar novamente
           </button>
