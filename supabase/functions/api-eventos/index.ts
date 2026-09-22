@@ -255,12 +255,19 @@ serve(async (req) => {
     .then(() => {}, (e: Error) => console.warn('[api-eventos] last_used_at:', e?.message))
 
   const tenantId: string = apiClient.tenant_id
-  const url     = new URL(req.url)
-  const stripped = url.pathname.replace(/^\/functions\/v1\/api-eventos\/?/, '')
-  const parts    = stripped ? stripped.split('/').filter(Boolean) : []
+  const url      = new URL(req.url)
+  // Funciona independente de como a Supabase encaminha o URL:
+  //   /functions/v1/api-eventos/eventos[/uuid]
+  //   /api-eventos/eventos[/uuid]
+  //   /eventos[/uuid]
+  const pathParts = url.pathname.split('/').filter(Boolean)
+  const evIdx     = pathParts.indexOf('eventos')
 
-  if (parts[0] !== 'eventos')
+  if (evIdx === -1)
     return apiError('not_found', 'Rota desconhecida. Use /api-eventos/eventos', 404, cors)
-  if (parts.length === 2) return handleDetail(sb, tenantId, parts[1], cors)
-  return handleList(url, sb, tenantId, cors)
+
+  const after = pathParts.slice(evIdx + 1)
+  if (after.length === 1) return handleDetail(sb, tenantId, after[0], cors)
+  if (after.length === 0) return handleList(url, sb, tenantId, cors)
+  return apiError('not_found', 'Rota desconhecida.', 404, cors)
 })
