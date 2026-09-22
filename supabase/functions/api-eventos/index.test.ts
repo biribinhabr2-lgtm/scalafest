@@ -17,7 +17,7 @@ import {
   getConfStatus,
   resolveCorsHeaders,
   processRequest,
-} from './index.ts'
+} from './_handler.ts'
 
 // ── Mock do Supabase client ───────────────────────────────────────────────────
 //
