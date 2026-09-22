@@ -8,7 +8,9 @@
     "migrate:dry":    "node migrate-eventos.js",
     "migrate:apply":  "node migrate-eventos.js --apply",
     "recover:dry":    "node recover-eventos.js --from-feedbacks",
-    "recover:apply":  "node recover-eventos.js --from-feedbacks --apply"
+    "recover:apply":  "node recover-eventos.js --from-feedbacks --apply",
+    "api-key:criar":  "node generate-api-key.js",
+    "api-key:listar": "node generate-api-key.js --listar"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.46.0"
