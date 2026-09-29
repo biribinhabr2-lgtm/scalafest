@@ -53,6 +53,7 @@ async function loadEventosFromTable(adminId) {
       hora_inicio,
       hora_fim,
       local,
+      obs,
       status,
       event_team (
         id,
@@ -75,6 +76,7 @@ async function loadEventosFromTable(adminId) {
     horaInicio: ev.hora_inicio ?? '',
     horaFim:    ev.hora_fim    ?? '',
     local:      ev.local       ?? '',
+    obs:        ev.obs         ?? '',
     status:     ev.status,
     equipe: (ev.event_team || []).map(m => ({
       freelancerId: m.freelancer_id,  // TEXT — mesmo valor do id numérico legado
@@ -113,34 +115,4 @@ async function loadFreelancers(adminId) {
   return loadDados(adminId, 'freelancers');
 }
 
-/**
- * Retorna as rotas (sf_rotas) de um dia, indexadas por evento_ref_id.
- * Falha silenciosa — retorna {} se a tabela não existir.
- */
-async function loadRotasDoDia(adminId, data) {
-  try {
-    const { data: rows, error } = await supabase
-      .from('sf_rotas')
-      .select(`
-        id, evento_ref_id, obs_logistica,
-        horario_saida_calculado,
-        motorista:sf_motoristas(nome),
-        veiculo:sf_veiculos(nome),
-        ponto_saida:sf_pontos_encontro!ponto_saida_id(nome)
-      `)
-      .eq('admin_id', adminId)
-      .eq('data_evento', data);
-
-    if (error) throw error;
-    const idx = {};
-    for (const r of (rows || [])) {
-      if (r.evento_ref_id) idx[String(r.evento_ref_id)] = r;
-    }
-    return idx;
-  } catch (err) {
-    console.warn('[dados.repo] loadRotasDoDia falhou silenciosamente:', err.message);
-    return {};
-  }
-}
-
-module.exports = { loadDados, loadEventos, loadFreelancers, loadRotasDoDia };
+module.exports = { loadDados, loadEventos, loadFreelancers };

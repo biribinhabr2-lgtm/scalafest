@@ -23,10 +23,9 @@ const supabase = require('../config/supabase');
  */
 async function enviarEscalaDia(adminId, data, grupoJid) {
   // ── 1. Carregar dados ───────────────────────────────────────────────────────
-  const [eventos, freelancers, rotasByEventId] = await Promise.all([
+  const [eventos, freelancers] = await Promise.all([
     dadosRepo.loadEventos(adminId),
     dadosRepo.loadFreelancers(adminId),
-    dadosRepo.loadRotasDoDia(adminId, data),
   ]);
 
   // ── 2. Filtrar eventos do dia e ordenar por horário ─────────────────────────
@@ -74,7 +73,7 @@ async function enviarEscalaDia(adminId, data, grupoJid) {
       erro:              'Template de mensagem inativo.',
     };
   }
-  const { texto, mentions } = buildEscalaDiariaGrupo(data, eventosDoDia, flById, tpl?.corpo, rotasByEventId);
+  const { texto, mentions } = buildEscalaDiariaGrupo(data, eventosDoDia, flById, tpl?.corpo);
 
   // ── 6. Enviar para o grupo ───────────────────────────────────────────────────
   const resultado = await waSvc.enviarMensagem(adminId, grupoJid, texto, mentions);

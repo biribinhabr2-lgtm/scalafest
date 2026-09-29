@@ -54,14 +54,13 @@ function cmpHorario(a, b) {
 /**
  * Constrói a mensagem de escala diária para envio em grupo.
  *
- * @param {string}   data              - "YYYY-MM-DD"
- * @param {Array}    eventos           - eventos do dia, já filtrados por data
- * @param {Object}   flById            - { [id]: freelancer } índice para lookup rápido
- * @param {string}   [templateCorpo]   - corpo do template com {{data_extenso}} e {{blocos_eventos}}
- * @param {Object}   [rotasByEventId]  - { [eventId]: rota } logística por evento
+ * @param {string}   data            - "YYYY-MM-DD"
+ * @param {Array}    eventos         - eventos do dia, já filtrados por data
+ * @param {Object}   flById          - { [id]: freelancer } índice para lookup rápido
+ * @param {string}   [templateCorpo] - corpo do template com {{data_extenso}} e {{blocos_eventos}}
  * @returns {{ texto: string, mentions: string[] }}
  */
-function buildEscalaDiariaGrupo(data, eventos, flById, templateCorpo, rotasByEventId = {}) {
+function buildEscalaDiariaGrupo(data, eventos, flById, templateCorpo) {
   const ordenados = [...eventos].sort((a, b) =>
     cmpHorario(fmtHora(a.horaInicio) || '00:00', fmtHora(b.horaInicio) || '00:00')
   );
@@ -75,20 +74,7 @@ function buildEscalaDiariaGrupo(data, eventos, flById, templateCorpo, rotasByEve
     if (ev.local) blocoLinhas.push(`📍 ${ev.local}`);
     if (ev.horaInicio && ev.horaFim)
       blocoLinhas.push(`⏰ ${fmtHora(ev.horaInicio)} — ${fmtHora(ev.horaFim)}`);
-
-    // Logística do evento (se houver rota vinculada)
-    const rota = rotasByEventId[String(ev.id)] || rotasByEventId[String(ev.legacy_id)];
-    if (rota) {
-      const partes = [];
-      if (rota.motorista?.nome) partes.push(`🚗 ${rota.motorista.nome}`);
-      if (rota.veiculo?.nome)   partes.push(`🚐 ${rota.veiculo.nome}`);
-      if (partes.length) blocoLinhas.push(partes.join(' | '));
-      if (rota.ponto_saida?.nome) {
-        const horaSaida = rota.horario_saida_calculado ? ` (${fmtHora(rota.horario_saida_calculado)})` : '';
-        blocoLinhas.push(`🗺️ Saída: ${rota.ponto_saida.nome}${horaSaida}`);
-      }
-      if (rota.obs_logistica) blocoLinhas.push(`📋 ${rota.obs_logistica}`);
-    }
+    if (ev.obs) blocoLinhas.push(`📋 ${ev.obs}`);
 
     const equipe = ev.equipe ?? [];
     const membrosOrdenados = [...equipe]
