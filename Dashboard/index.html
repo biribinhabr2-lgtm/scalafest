@@ -3174,7 +3174,7 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
   const gerarPdfEscalaEvento=(ev)=>{
     const fmtBR=d=>{if(!d)return"";const[y,m,day]=d.split("-");return`${day}/${m}/${y}`;};
     const dataHoje=new Date().toLocaleDateString("pt-BR");
-    const equipeOrdenada=[...ev.equipe].sort((a,b)=>{const fa=freelancers.find(f=>f.id===a.freelancerId);const fb=freelancers.find(f=>f.id===b.freelancerId);return(fa?.nome||"").localeCompare(fb?.nome||"","pt-BR");});
+    const equipeOrdenada=[...ev.equipe].sort((a,b)=>{const ia=funcoes.findIndex(f=>f.nome===a.funcao);const ib=funcoes.findIndex(f=>f.nome===b.funcao);const fo=(ia<0?999:ia)-(ib<0?999:ib);if(fo!==0)return fo;const fa=freelancers.find(f=>f.id===a.freelancerId);const fb=freelancers.find(f=>f.id===b.freelancerId);return(fa?.nome||"").localeCompare(fb?.nome||"","pt-BR");});
     const linhasEquipe=equipeOrdenada.map(m=>{
       const f=freelancers.find(x=>x.id===m.freelancerId);if(!f)return"";
       const confData=getConfAdmin(confirmacoesMap,m.freelancerId,ev);
@@ -3312,6 +3312,8 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
 
       // Equipe escalada
       const equipeOrd=[...(ev.equipe||[])].sort((a,b)=>{
+        const ia=funcoes.findIndex(f=>f.nome===a.funcao);const ib=funcoes.findIndex(f=>f.nome===b.funcao);
+        const fo=(ia<0?999:ia)-(ib<0?999:ib);if(fo!==0)return fo;
         const fa=fl(a.freelancerId),fb=fl(b.freelancerId);
         return(fa?.nome||'').localeCompare(fb?.nome||'','pt-BR');
       });
@@ -3675,7 +3677,7 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
           )}
           <div style={{fontWeight:700,color:"var(--text)",fontSize:14,marginBottom:10}}> Equipe {det.equipe.length>0&&<span style={{color:"var(--text2)",fontWeight:400,fontSize:12}}>({det.equipe.length})</span>}</div>
           <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:18}}>
-            {[...det.equipe].sort((a,b)=>{const fa=fl(a.freelancerId);const fb=fl(b.freelancerId);return(fa?.nome||"").localeCompare(fb?.nome||"","pt-BR");}).map((m,idx)=>{
+            {[...det.equipe].sort((a,b)=>{const ia=funcoes.findIndex(f=>f.nome===a.funcao);const ib=funcoes.findIndex(f=>f.nome===b.funcao);const fo=(ia<0?999:ia)-(ib<0?999:ib);if(fo!==0)return fo;const fa=fl(a.freelancerId);const fb=fl(b.freelancerId);return(fa?.nome||"").localeCompare(fb?.nome||"","pt-BR");}).map((m,idx)=>{
               const f=fl(m.freelancerId);if(!f)return null;
               const fid=m.freelancerId;
               const totalCache=calcCache(m,det);
