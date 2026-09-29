@@ -230,6 +230,12 @@ const GCAL_REDIRECT_URI = "https://escalafesta.netlify.app/auth/google/callback"
 // URL do servidor WhatsApp — lida do localStorage para não precisar editar código
 // a cada restart. O usuário configura pelo botão [config] no painel.
 const WA_RAILWAY = "https://scalafest-production.up.railway.app";
+function _normalizeWaUrl(raw){
+  if(!raw) return WA_RAILWAY;
+  let u = raw.trim().replace(/\/+$/, "");
+  if(!u.startsWith("http://") && !u.startsWith("https://")) u = "https://" + u;
+  return u;
+}
 const WA_SERVER_URL = (()=>{
   try{
     const saved = localStorage.getItem("wa_server_url");
@@ -238,7 +244,13 @@ const WA_SERVER_URL = (()=>{
       localStorage.setItem("wa_server_url", WA_RAILWAY);
       return WA_RAILWAY;
     }
-    return saved;
+    const normalized = _normalizeWaUrl(saved);
+    if(normalized !== saved){
+      console.warn("[WA] URL normalizada:", saved, "→", normalized);
+      localStorage.setItem("wa_server_url", normalized);
+    }
+    if(!normalized.startsWith("http")) console.error("[WA] URL sem protocolo — as chamadas vão falhar:", normalized);
+    return normalized;
   }
   catch(e){ return WA_RAILWAY; }
 })();
@@ -3517,7 +3529,7 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
         <button title="Configurar URL do servidor" onClick={()=>{
           const atual=localStorage.getItem("wa_server_url")||"https://scalafest-production.up.railway.app";
           const nova=window.prompt("URL do servidor WhatsApp (ex: https://xxxx.loca.lt)",atual);
-          if(nova!==null){const url=nova.trim().replace(/\/$/,"");localStorage.setItem("wa_server_url",url);setWaUrl(url);}
+          if(nova!==null){const url=_normalizeWaUrl(nova);localStorage.setItem("wa_server_url",url);setWaUrl(url);}
         }} style={{background:"transparent",border:"1px solid #BBF7D0",borderRadius:8,padding:"5px 9px",fontSize:13,cursor:"pointer",color:"#15803D",display:"inline-flex",alignItems:"center"}}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
         {waResultado&&<div style={{width:"100%",marginTop:4,fontSize:12,color:waResultado.error?"var(--danger)":"#15803D"}}>
           {waResultado.error
