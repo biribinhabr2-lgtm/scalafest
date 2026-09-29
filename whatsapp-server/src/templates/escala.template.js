@@ -14,6 +14,13 @@ function fmtDiaSemana(dataStr) {
   return `${nomeDia} (${String(dia).padStart(2,'0')}/${String(mes).padStart(2,'0')})`;
 }
 
+/** "HH:MM:SS" ou "HH:MM" → "HH:MM" */
+function fmtHora(h) {
+  if (!h) return '';
+  const parts = String(h).split(':');
+  return `${parts[0]}:${parts[1] || '00'}`;
+}
+
 /** Remove tudo que não for dígito */
 function limparTel(tel) {
   return tel ? tel.replace(/\D/g, '') : '';
@@ -47,15 +54,16 @@ function cmpHorario(a, b) {
 /**
  * Constrói a mensagem de escala diária para envio em grupo.
  *
- * @param {string}   data          - "YYYY-MM-DD"
- * @param {Array}    eventos       - eventos do dia, já filtrados por data
- * @param {Object}   flById        - { [id]: freelancer } índice para lookup rápido
- * @param {string}   [templateCorpo] - corpo do template com {{data_extenso}} e {{blocos_eventos}}
+ * @param {string}   data              - "YYYY-MM-DD"
+ * @param {Array}    eventos           - eventos do dia, já filtrados por data
+ * @param {Object}   flById            - { [id]: freelancer } índice para lookup rápido
+ * @param {string}   [templateCorpo]   - corpo do template com {{data_extenso}} e {{blocos_eventos}}
+ * @param {Object}   [rotasByEventId]  - { [eventId]: rota } logística por evento
  * @returns {{ texto: string, mentions: string[] }}
  */
-function buildEscalaDiariaGrupo(data, eventos, flById, templateCorpo) {
+function buildEscalaDiariaGrupo(data, eventos, flById, templateCorpo, rotasByEventId = {}) {
   const ordenados = [...eventos].sort((a, b) =>
-    cmpHorario(a.horaInicio || '00:00', b.horaInicio || '00:00')
+    cmpHorario(fmtHora(a.horaInicio) || '00:00', fmtHora(b.horaInicio) || '00:00')
   );
 
   const mentionsSet = new Set();
@@ -64,9 +72,23 @@ function buildEscalaDiariaGrupo(data, eventos, flById, templateCorpo) {
   for (const ev of ordenados) {
     blocoLinhas.push('');
     blocoLinhas.push(`*${ev.nome}*`);
-    if (ev.local)    blocoLinhas.push(`📍 ${ev.local}`);
+    if (ev.local) blocoLinhas.push(`📍 ${ev.local}`);
     if (ev.horaInicio && ev.horaFim)
-      blocoLinhas.push(`⏰ ${ev.horaInicio} — ${ev.horaFim}`);
+      blocoLinhas.push(`⏰ ${fmtHora(ev.horaInicio)} — ${fmtHora(ev.horaFim)}`);
+
+    // Logística do evento (se houver rota vinculada)
+    const rota = rotasByEventId[String(ev.id)] || rotasByEventId[String(ev.legacy_id)];
+    if (rota) {
+      const partes = [];
+      if (rota.motorista?.nome) partes.push(`🚗 ${rota.motorista.nome}`);
+      if (rota.veiculo?.nome)   partes.push(`🚐 ${rota.veiculo.nome}`);
+      if (partes.length) blocoLinhas.push(partes.join(' | '));
+      if (rota.ponto_saida?.nome) {
+        const horaSaida = rota.horario_saida_calculado ? ` (${fmtHora(rota.horario_saida_calculado)})` : '';
+        blocoLinhas.push(`🗺️ Saída: ${rota.ponto_saida.nome}${horaSaida}`);
+      }
+      if (rota.obs_logistica) blocoLinhas.push(`📋 ${rota.obs_logistica}`);
+    }
 
     const equipe = ev.equipe ?? [];
     const membrosOrdenados = [...equipe]
@@ -75,13 +97,14 @@ function buildEscalaDiariaGrupo(data, eventos, flById, templateCorpo) {
       .sort((a, b) => (a.fl.nome || '').localeCompare(b.fl.nome || '', 'pt-BR'));
 
     for (const { m, fl } of membrosOrdenados) {
+      const funcaoObs = m.obs ? `${m.funcao} _(${m.obs})_` : m.funcao;
       const jid = telParaJid(fl.telefone);
       if (jid) {
         const num = jidParaNumero(jid);
-        blocoLinhas.push(`@${num} - ${m.funcao}`);
+        blocoLinhas.push(`@${num} - ${funcaoObs}`);
         mentionsSet.add(jid);
       } else {
-        blocoLinhas.push(`${fl.nome} - ${m.funcao}`);
+        blocoLinhas.push(`${fl.nome} - ${funcaoObs}`);
       }
     }
   }

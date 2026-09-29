@@ -113,4 +113,34 @@ async function loadFreelancers(adminId) {
   return loadDados(adminId, 'freelancers');
 }
 
-module.exports = { loadDados, loadEventos, loadFreelancers };
+/**
+ * Retorna as rotas (sf_rotas) de um dia, indexadas por evento_ref_id.
+ * Falha silenciosa — retorna {} se a tabela não existir.
+ */
+async function loadRotasDoDia(adminId, data) {
+  try {
+    const { data: rows, error } = await supabase
+      .from('sf_rotas')
+      .select(`
+        id, evento_ref_id, obs_logistica,
+        horario_saida_calculado,
+        motorista:sf_motoristas(nome),
+        veiculo:sf_veiculos(nome),
+        ponto_saida:sf_pontos_encontro!ponto_saida_id(nome)
+      `)
+      .eq('admin_id', adminId)
+      .eq('data_evento', data);
+
+    if (error) throw error;
+    const idx = {};
+    for (const r of (rows || [])) {
+      if (r.evento_ref_id) idx[String(r.evento_ref_id)] = r;
+    }
+    return idx;
+  } catch (err) {
+    console.warn('[dados.repo] loadRotasDoDia falhou silenciosamente:', err.message);
+    return {};
+  }
+}
+
+module.exports = { loadDados, loadEventos, loadFreelancers, loadRotasDoDia };
