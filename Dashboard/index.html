@@ -2832,6 +2832,7 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
   const[form,setForm]=useState({});
   const[mf,setMf]=useState({freelancerId:"",funcao:"",cache:"",obs:""});
   const[filtro,setFiltro]=useState("");
+  const[filtroData,setFiltroData]=useState("");
   const[editCache,setEditCache]=useState(null); // {fid, val} quando editando inline
   const[gcal,setGcal]=useState(null);
   const[conflito,setConflito]=useState(null);
@@ -3166,8 +3167,10 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
   const evOrdenados=[...eventos].sort((a,b)=>{const d=a.data.localeCompare(b.data);return d!==0?d:(a.horaInicio||"").localeCompare(b.horaInicio||"");});
   const evFuturos=evOrdenados.filter(e=>e.data>=hoje);
   const evPassados=evOrdenados.filter(e=>e.data<hoje).reverse(); // mais recentes primeiro
-  const evFilt=evFuturos.filter(e=>e.nome?.toLowerCase().includes(filtro.toLowerCase())||e.tipo?.toLowerCase().includes(filtro.toLowerCase())||e.local?.toLowerCase().includes(filtro.toLowerCase()));
-  const evPassFilt=evPassados.filter(e=>e.nome?.toLowerCase().includes(filtro.toLowerCase())||e.tipo?.toLowerCase().includes(filtro.toLowerCase())||e.local?.toLowerCase().includes(filtro.toLowerCase()));
+  const _matchText=(e)=>!filtro||(e.nome?.toLowerCase().includes(filtro.toLowerCase())||e.tipo?.toLowerCase().includes(filtro.toLowerCase())||e.local?.toLowerCase().includes(filtro.toLowerCase()));
+  const _matchData=(e)=>!filtroData||e.data===filtroData;
+  const evFilt=evFuturos.filter(e=>_matchText(e)&&_matchData(e));
+  const evPassFilt=evPassados.filter(e=>_matchText(e)&&_matchData(e));
   const[verPassados,setVerPassados]=useState(false);
 
   // ── EXPORTAR ESCALA DO EVENTO EM PDF ──────────────────────────────────────
@@ -3504,6 +3507,10 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
         </div>
         <div style={{display:"flex",gap:8}}>
           <input value={filtro} onChange={e=>setFiltro(e.target.value)} placeholder="Buscar evento..." style={{background:"var(--card)",border:"1px solid var(--border)",borderRadius:9,padding:"8px 14px",color:"var(--text)",fontSize:13,outline:"none",fontFamily:"inherit",minWidth:170}}/>
+          <div style={{position:"relative",display:"flex",alignItems:"center"}}>
+            <input type="date" value={filtroData} onChange={e=>setFiltroData(e.target.value)} title="Filtrar por dia" style={{background:"var(--card)",border:`1px solid ${filtroData?"var(--primary)":"var(--border)"}`,borderRadius:9,padding:"8px 14px",color:filtroData?"var(--primary)":"var(--text2)",fontSize:13,outline:"none",fontFamily:"inherit",cursor:"pointer"}}/>
+            {filtroData&&<button onClick={()=>setFiltroData("")} title="Limpar filtro de data" style={{position:"absolute",right:8,background:"none",border:"none",cursor:"pointer",color:"var(--text3)",fontSize:14,lineHeight:1,padding:0,display:"flex",alignItems:"center"}}>✕</button>}
+          </div>
           <Btn onClick={()=>{setForm({nome:"",tipo:"Aniversário Infantil",data:"",horaInicio:"",horaFim:"",local:"",status:"Confirmado",obs:""});setModal("novo");}}>＋ Novo Evento</Btn>
         </div>
       </div>
@@ -3557,8 +3564,8 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
       </div>}
 
       {/* Eventos futuros / atuais */}
-      {evFilt.length===0&&!filtro&&<EmptyState icon="calendar" title="Nenhum evento ainda" description="Crie seu primeiro evento para começar a escalar sua equipe." actionLabel="＋ Novo Evento" onAction={()=>{setForm({nome:"",tipo:"Aniversário Infantil",data:"",horaInicio:"",horaFim:"",local:"",status:"Confirmado",obs:""});setModal("novo");}}/>}
-      {evFilt.length===0&&filtro&&<EmptyState icon="search" title={`Nenhum resultado para "${filtro}"`} description="Tente um nome diferente ou limpe o filtro." compact/>}
+      {evFilt.length===0&&!filtro&&!filtroData&&<EmptyState icon="calendar" title="Nenhum evento ainda" description="Crie seu primeiro evento para começar a escalar sua equipe." actionLabel="＋ Novo Evento" onAction={()=>{setForm({nome:"",tipo:"Aniversário Infantil",data:"",horaInicio:"",horaFim:"",local:"",status:"Confirmado",obs:""});setModal("novo");}}/>}
+      {evFilt.length===0&&(filtro||filtroData)&&<EmptyState icon="search" title={filtroData&&!filtro?`Nenhum evento em ${filtroData.split("-").reverse().join("/")}`:`Nenhum resultado para "${filtro}"`} description="Tente um nome diferente ou limpe os filtros." compact/>}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:16}}>
         {evFilt.map(ev=>{
           const total=(ev.equipe||[]).reduce((s,m)=>s+calcCache(m,ev),0);
@@ -3614,15 +3621,15 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
       </div>
 
       {/* Eventos anteriores */}
-      {(evPassados.length>0||(filtro&&evPassFilt.length>0))&&(
+      {(evPassados.length>0||((filtro||filtroData)&&evPassFilt.length>0))&&(
         <div style={{marginTop:32}}>
           <button onClick={()=>setVerPassados(v=>!v)} style={{display:"flex",alignItems:"center",gap:8,background:"var(--card)",border:"1px solid var(--border)",borderRadius:10,padding:"10px 16px",color:"var(--text2)",cursor:"pointer",fontFamily:"inherit",fontSize:13,fontWeight:600,marginBottom:16}}>
             <span style={{fontSize:16}}>{verPassados?"▼":"›"}</span>
-            Eventos Anteriores ({filtro?evPassFilt.length:evPassados.length})
+            Eventos Anteriores ({(filtro||filtroData)?evPassFilt.length:evPassados.length})
           </button>
           {verPassados&&(
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(280px,1fr))",gap:16,opacity:0.7}}>
-              {(filtro?evPassFilt:evPassados).map(ev=>{
+              {((filtro||filtroData)?evPassFilt:evPassados).map(ev=>{
                 const total=(ev.equipe||[]).reduce((s,m)=>s+calcCache(m,ev),0);
                 const ativo=detalhe===ev.id;
                 return(<Card key={ev.id} onClick={()=>{setDetalhe(ativo?null:ev.id);setMf(f=>({...f,freelancerId:"",cache:""}));}} style={{cursor:"pointer",borderColor:ativo?"var(--primary)":"var(--border)",boxShadow:ativo?"0 0 0 2px #8b5cf644":"none"}}>
