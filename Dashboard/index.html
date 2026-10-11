@@ -329,6 +329,7 @@ const evSvc = (() => {
     turnos: r.turnos || 1,
     bonusMultTurnos: r.bonus_mult_turnos || false,
     bonus: r.bonus_nivel ? {nivel: r.bonus_nivel, ativo: r.bonus_ativo || false} : null,
+    eventServiceId: r.event_service_id || null,
   });
   const _mapRow = r => ({
     id: r.id,
@@ -354,6 +355,7 @@ const evSvc = (() => {
     triagem_status: r.triagem_status || 'pendente',
     duracao_total_min: r.duracao_total_min || null,
     equipe: (r.event_team || []).map(_mapTeamRow),
+    services: (r.event_services || []).sort((a,b)=>a.ordem-b.ordem),
   });
   const _unmap = d => {
     const db = {};
@@ -384,15 +386,16 @@ const evSvc = (() => {
     bonus_mult_turnos: m.bonusMultTurnos || false,
     bonus_nivel: m.bonus?.nivel || null,
     bonus_ativo: m.bonus?.ativo || false,
+    event_service_id: m.eventServiceId || null,
   });
   const _refetch = async (tenantId, eventId) => {
-    const {data, error} = await sb.from("events").select("*, event_team(*)").eq("tenant_id", tenantId).eq("id", eventId).single();
+    const {data, error} = await sb.from("events").select("*, event_team(*), event_services(*)").eq("tenant_id", tenantId).eq("id", eventId).single();
     if (error) throw new Error(error.message);
     return _mapRow(data);
   };
   return {
     async list(tenantId, opts={}) {
-      let q = sb.from("events").select("*, event_team(*)").eq("tenant_id", tenantId).order("data", {ascending:true});
+      let q = sb.from("events").select("*, event_team(*), event_services(*)").eq("tenant_id", tenantId).order("data", {ascending:true});
       if (opts.from)   q = q.gte("data", opts.from);
       if (opts.to)     q = q.lte("data", opts.to);
       if (opts.status) q = q.eq("status", opts.status);
@@ -401,10 +404,10 @@ const evSvc = (() => {
       return (data || []).map(_mapRow);
     },
     async get(tenantId, id) {
-      let {data, error} = await sb.from("events").select("*, event_team(*)").eq("tenant_id", tenantId).eq("id", id).maybeSingle();
+      let {data, error} = await sb.from("events").select("*, event_team(*), event_services(*)").eq("tenant_id", tenantId).eq("id", id).maybeSingle();
       if (error) throw new Error(error.message);
       if (!data) {
-        const res = await sb.from("events").select("*, event_team(*)").eq("tenant_id", tenantId).eq("legacy_id", String(id)).maybeSingle();
+        const res = await sb.from("events").select("*, event_team(*), event_services(*)").eq("tenant_id", tenantId).eq("legacy_id", String(id)).maybeSingle();
         if (res.error) throw new Error(res.error.message);
         data = res.data;
       }
@@ -2611,6 +2614,30 @@ function ChecklistPage({eventos,tenantId}){
 
 const foiAtualizado=ev=>!!(ev.updatedAt&&Date.now()-new Date(ev.updatedAt).getTime()<48*3600000);
 
+/**
+ * Agrupa ev.equipe por serviço, usando ev.services para os cabeçalhos.
+ * Retorna [{serviceId, nome, membros:[]}], onde o último grupo (null) contém
+ * membros sem serviço definido.
+ * Dentro de cada grupo ordena: Líder primeiro, depois alfabético por nome.
+ */
+const agruparEquipePorServico=(ev,funcoes,fl)=>{
+  const byId={};
+  (ev.services||[]).forEach(s=>{byId[s.id]={serviceId:s.id,nome:s.nome_bruto||"Serviço",membros:[]};});
+  const semServico={serviceId:null,nome:"Sem serviço",membros:[]};
+  for(const m of (ev.equipe||[])){
+    if(m.eventServiceId&&byId[m.eventServiceId])byId[m.eventServiceId].membros.push(m);
+    else semServico.membros.push(m);
+  }
+  const sortMembros=arr=>[...arr].sort((a,b)=>{
+    const ia=funcoes.findIndex(f=>f.nome===a.funcao);const ib=funcoes.findIndex(f=>f.nome===b.funcao);
+    const fo=(ia<0?999:ia)-(ib<0?999:ib);if(fo!==0)return fo;
+    return(fl(a.freelancerId)?.nome||"").localeCompare(fl(b.freelancerId)?.nome||"","pt-BR");
+  });
+  const grupos=(ev.services||[]).map(s=>({...byId[s.id],membros:sortMembros(byId[s.id]?.membros||[])}));
+  if(semServico.membros.length)grupos.push({...semServico,membros:sortMembros(semServico.membros)});
+  return grupos;
+};
+
 // ── PAINEL SUGESTÃO DE ESCALA ─────────────────────────────────────────────────
 function PainelSugestaoEscala({loading,data,erro,onRetry,sel,setSel,expandido,setExpandido,aplicando,novos,enviarConfNow,setEnviarConfNow,ev,onAplicar,onClose,waEscala,tenantId}){
   const[atribuindo,setAtribuindo]=React.useState(false);
@@ -3123,7 +3150,7 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
           const atualizado=await evSvc.upsertMember(userId,eid,novoMembro);
           setEventos(evs=>evs.map(e=>e.id===eid?atualizado:e));
         }catch(err){console.error("[addMembro]",err.message);addToast?.("Erro ao escalar: "+err.message,"erro");}
-        setMf(f=>({...f,freelancerId:"",cache:"",busca:"",obs:""}));setConflito(null);
+        setMf(f=>({...f,freelancerId:"",cache:"",busca:"",obs:"",eventServiceId:null}));setConflito(null);
       }});return;
     }
     try{
@@ -3131,7 +3158,7 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
       const atualizado=await evSvc.upsertMember(userId,eid,novoMembro);
       setEventos(evs=>evs.map(e=>e.id===eid?atualizado:e));
     }catch(err){console.error("[addMembro]",err.message);addToast?.("Erro ao escalar: "+err.message,"erro");}
-    setMf(f=>({...f,freelancerId:"",cache:"",busca:"",obs:""}));
+    setMf(f=>({...f,freelancerId:"",cache:"",busca:"",obs:"",eventServiceId:null}));
   };
 
   // Constrói objeto membro com bônus automático
@@ -3149,7 +3176,8 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
       pago:false,
       turnos:1,
       bonusMultTurnos:false,
-      bonus:nivelBonus?{nivel:nivelBonus,ativo:bonusAuto}:null
+      bonus:nivelBonus?{nivel:nivelBonus,ativo:bonusAuto}:null,
+      eventServiceId:mf.eventServiceId||null,
     };
   };
   const togPago=(eid,fid)=>{
@@ -3177,23 +3205,30 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
   const gerarPdfEscalaEvento=(ev)=>{
     const fmtBR=d=>{if(!d)return"";const[y,m,day]=d.split("-");return`${day}/${m}/${y}`;};
     const dataHoje=new Date().toLocaleDateString("pt-BR");
-    const equipeOrdenada=[...ev.equipe].sort((a,b)=>{const ia=funcoes.findIndex(f=>f.nome===a.funcao);const ib=funcoes.findIndex(f=>f.nome===b.funcao);const fo=(ia<0?999:ia)-(ib<0?999:ib);if(fo!==0)return fo;const fa=freelancers.find(f=>f.id===a.freelancerId);const fb=freelancers.find(f=>f.id===b.freelancerId);return(fa?.nome||"").localeCompare(fb?.nome||"","pt-BR");});
-    const linhasEquipe=equipeOrdenada.map(m=>{
-      const f=freelancers.find(x=>x.id===m.freelancerId);if(!f)return"";
-      const confData=getConfAdmin(confirmacoesMap,m.freelancerId,ev);
-      const confStatus=getConfStatus(confData);
-      const confLabel=confStatus==="confirmed"?"Confirmado":confStatus==="declined"?"Recusou":f.userId?"Pendente":"—";
-      const confCor=confStatus==="confirmed"?"#16a34a":confStatus==="declined"?"#dc2626":f.userId?"#d97706":"#9ca3af";
-      const totalCache=calcCache(m,ev);
-      return`<tr>
-        <td style="font-weight:600">${f.nome}</td>
-        <td>${m.funcao||"—"}</td>
-        <td style="text-align:center">${ev.horaInicio||"—"}</td>
-        <td style="text-align:center">${ev.horaFim||"—"}</td>
-        <td style="font-weight:700;color:#0C6E7E;text-align:right">R$ ${totalCache.toFixed(2).replace(".",",")}</td>
-        <td style="color:${confCor};font-weight:600;text-align:center">${confLabel}</td>
-        <td style="font-size:11px;color:#92400e">${m.obs||"—"}</td>
-      </tr>`;
+    const flLookup=id=>freelancers.find(f=>f.id===id||f.id===+id);
+    const grupos=agruparEquipePorServico(ev,funcoes,flLookup);
+    const temGruposPdf=ev.services&&ev.services.length>0;
+    let equipeOrdenada=[];grupos.forEach(g=>equipeOrdenada.push(...g.membros));
+    const linhasEquipe=grupos.flatMap(g=>{
+      const header=temGruposPdf?`<tr><td colspan="7" style="background:#f0f9ff;font-weight:700;color:#0C6E7E;font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:6px 12px;border-bottom:1px solid #bae6fd">(${g.nome})</td></tr>`:"";
+      const rows=g.membros.map(m=>{
+        const f=flLookup(m.freelancerId);if(!f)return"";
+        const confData=getConfAdmin(confirmacoesMap,m.freelancerId,ev);
+        const confStatus=getConfStatus(confData);
+        const confLabel=confStatus==="confirmed"?"Confirmado":confStatus==="declined"?"Recusou":f.userId?"Pendente":"—";
+        const confCor=confStatus==="confirmed"?"#16a34a":confStatus==="declined"?"#dc2626":f.userId?"#d97706":"#9ca3af";
+        const totalCache=calcCache(m,ev);
+        return`<tr>
+          <td style="font-weight:600">${f.nome}</td>
+          <td>${m.funcao||"—"}</td>
+          <td style="text-align:center">${ev.horaInicio||"—"}</td>
+          <td style="text-align:center">${ev.horaFim||"—"}</td>
+          <td style="font-weight:700;color:#0C6E7E;text-align:right">R$ ${totalCache.toFixed(2).replace(".",",")}</td>
+          <td style="color:${confCor};font-weight:600;text-align:center">${confLabel}</td>
+          <td style="font-size:11px;color:#92400e">${m.obs||"—"}</td>
+        </tr>`;
+      }).join("");
+      return header+rows;
     }).join("");
     const html=`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"/>
     <style>
@@ -3684,7 +3719,14 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
           )}
           <div style={{fontWeight:700,color:"var(--text)",fontSize:14,marginBottom:10}}> Equipe {det.equipe.length>0&&<span style={{color:"var(--text2)",fontWeight:400,fontSize:12}}>({det.equipe.length})</span>}</div>
           <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:18}}>
-            {[...det.equipe].sort((a,b)=>{const ia=funcoes.findIndex(f=>f.nome===a.funcao);const ib=funcoes.findIndex(f=>f.nome===b.funcao);const fo=(ia<0?999:ia)-(ib<0?999:ib);if(fo!==0)return fo;const fa=fl(a.freelancerId);const fb=fl(b.freelancerId);return(fa?.nome||"").localeCompare(fb?.nome||"","pt-BR");}).map((m,idx)=>{
+            {(()=>{
+              const grupos=agruparEquipePorServico(det,funcoes,fl);
+              const temGrupos=det.services&&det.services.length>0;
+              return grupos.map((grupo,gi)=>{
+                const showHeader=temGrupos;
+                return(<React.Fragment key={grupo.serviceId||"__sem__"}>
+                  {showHeader&&<div style={{fontSize:11,fontWeight:700,color:"var(--text2)",textTransform:"uppercase",letterSpacing:".08em",marginTop:gi>0?8:0,marginBottom:4,padding:"4px 0",borderBottom:"1px solid var(--border)"}}>({grupo.nome})</div>}
+                  {grupo.membros.map((m)=>{
               const f=fl(m.freelancerId);if(!f)return null;
               const fid=m.freelancerId;
               const totalCache=calcCache(m,det);
@@ -3782,6 +3824,8 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
                   {!gestaoMode&&<Btn small variant="danger" onClick={()=>remMembro(det.id,fid)}>×</Btn>}
                 </div>
               </div>);})}
+                </React.Fragment>);});
+            })()}
             {!gestaoMode&&det.equipe.length===0&&<div style={{color:"var(--text3)",fontSize:13,textAlign:"center",padding:"8px 0"}}>Adicione membros abaixo </div>}
           </div>
           {!gestaoMode&&<div style={{background:"var(--bg)",borderRadius:10,padding:14}}>
@@ -3848,6 +3892,17 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
             </div>
             {mf.freelancerId&&(()=>{const al=checkDisp(mf.freelancerId,det);if(!al||al.tipo==="disponivel"||al.tipo==="sem_info")return null;return(<div style={{background:al.cor+"15",border:`1px solid ${al.cor}33`,borderRadius:8,padding:"8px 12px",marginBottom:10,fontSize:12,color:al.cor}}>{al.tipo==="conflito"?"":al.tipo==="indisponivel"?"":""} {al.msg}</div>);})()}
             <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {det.services&&det.services.length>1&&(
+                <div>
+                  <label style={{fontSize:11,fontWeight:700,color:"var(--text2)",textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:5}}>Serviço</label>
+                  <select value={mf.eventServiceId||""} onChange={e=>setMf(f=>({...f,eventServiceId:e.target.value||null}))}
+                    style={{background:"var(--card)",border:`1.5px solid ${!mf.eventServiceId?"var(--warning)":"var(--border)"}`,borderRadius:8,padding:"8px 12px",color:"var(--text)",fontSize:12,outline:"none",fontFamily:"inherit",width:"100%",boxSizing:"border-box"}}>
+                    <option value="">— Selecione o serviço —</option>
+                    {det.services.map(s=><option key={s.id} value={s.id}>{s.nome_bruto}</option>)}
+                  </select>
+                  {!mf.eventServiceId&&<div style={{fontSize:10,color:"var(--warning)",marginTop:3}}>Selecione o serviço para esta alocação</div>}
+                </div>
+              )}
               <Sel label="Função" value={mf.funcao} onChange={e=>setFnMembro(e.target.value)}>
                 {funcoes.map(fn=><option key={fn.id} value={fn.nome}>{fn.nome}{fn.cacheDefault>0?` (R$ ${fn.cacheDefault.toFixed(2).replace(".",",")} padrão)`:""}</option>)}
               </Sel>

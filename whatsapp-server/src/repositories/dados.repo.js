@@ -61,7 +61,13 @@ async function loadEventosFromTable(adminId) {
         funcao,
         cache_base,
         obs,
-        pago
+        pago,
+        event_service_id
+      ),
+      event_services (
+        id,
+        nome_bruto,
+        ordem
       )
     `)
     .eq('tenant_id', adminId)
@@ -79,12 +85,14 @@ async function loadEventosFromTable(adminId) {
     obs:        ev.obs         ?? '',
     status:     ev.status,
     equipe: (ev.event_team || []).map(m => ({
-      freelancerId: m.freelancer_id,  // TEXT — mesmo valor do id numérico legado
-      funcao:       m.funcao  ?? '',
-      cache:        m.cache_base,
-      obs:          m.obs     ?? '',
-      pago:         m.pago    ?? false,
+      freelancerId:   m.freelancer_id,
+      funcao:         m.funcao        ?? '',
+      cache:          m.cache_base,
+      obs:            m.obs           ?? '',
+      pago:           m.pago          ?? false,
+      eventServiceId: m.event_service_id ?? null,
     })),
+    services: (ev.event_services || []).sort((a, b) => a.ordem - b.ordem),
   }));
 }
 

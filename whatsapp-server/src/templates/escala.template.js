@@ -76,21 +76,46 @@ function buildEscalaDiariaGrupo(data, eventos, flById, templateCorpo) {
       blocoLinhas.push(`⏰ ${fmtHora(ev.horaInicio)} — ${fmtHora(ev.horaFim)}`);
     if (ev.obs) blocoLinhas.push(`📋 ${ev.obs}`);
 
-    const equipe = ev.equipe ?? [];
-    const membrosOrdenados = [...equipe]
-      .map(m => ({ m, fl: flById[String(m.freelancerId)] }))
-      .filter(({ fl }) => fl)
-      .sort((a, b) => (a.fl.nome || '').localeCompare(b.fl.nome || '', 'pt-BR'));
+    const equipe   = ev.equipe   ?? [];
+    const services = ev.services ?? [];
 
-    for (const { m, fl } of membrosOrdenados) {
-      const funcaoObs = m.obs ? `${m.funcao} _(${m.obs})_` : m.funcao;
-      const jid = telParaJid(fl.telefone);
-      if (jid) {
-        const num = jidParaNumero(jid);
-        blocoLinhas.push(`@${num} - ${funcaoObs}`);
-        mentionsSet.add(jid);
+    // Agrupa por serviço (ordem de event_services), sem-serviço no final
+    const byServiceId = {};
+    for (const svc of services) byServiceId[svc.id] = { nome: svc.nome_bruto, membros: [] };
+    const semServico = { nome: null, membros: [] };
+
+    for (const m of equipe) {
+      if (m.eventServiceId && byServiceId[m.eventServiceId]) {
+        byServiceId[m.eventServiceId].membros.push(m);
       } else {
-        blocoLinhas.push(`${fl.nome} - ${funcaoObs}`);
+        semServico.membros.push(m);
+      }
+    }
+
+    const grupos = [...services.map(s => byServiceId[s.id])];
+    if (semServico.membros.length) grupos.push(semServico);
+
+    const temGrupos = services.length > 0;
+
+    for (const grupo of grupos) {
+      if (temGrupos && grupo.nome) blocoLinhas.push(`_(${grupo.nome})_`);
+
+      // Ordena: sem critério de funcoes no backend, usa nome
+      const membrosOrdenados = [...grupo.membros]
+        .map(m => ({ m, fl: flById[String(m.freelancerId)] }))
+        .filter(({ fl }) => fl)
+        .sort((a, b) => (a.fl.nome || '').localeCompare(b.fl.nome || '', 'pt-BR'));
+
+      for (const { m, fl } of membrosOrdenados) {
+        const funcaoObs = m.obs ? `${m.funcao} _(${m.obs})_` : m.funcao;
+        const jid = telParaJid(fl.telefone);
+        if (jid) {
+          const num = jidParaNumero(jid);
+          blocoLinhas.push(`@${num} - ${funcaoObs}`);
+          mentionsSet.add(jid);
+        } else {
+          blocoLinhas.push(`${fl.nome} - ${funcaoObs}`);
+        }
       }
     }
   }
