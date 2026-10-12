@@ -3706,13 +3706,18 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
               </button>
           )}
           <div style={{fontWeight:700,color:"var(--text)",fontSize:14,marginBottom:10}}> Equipe {det.equipe.length>0&&<span style={{color:"var(--text2)",fontWeight:400,fontSize:12}}>({det.equipe.length})</span>}</div>
-          <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:18}}>
+          <div style={{display:"flex",flexDirection:"column",gap:0,marginBottom:18}}>
             {(()=>{
               const grupos=agruparEquipePorFuncao(det,funcoes,fl);
               const temGrupos=grupos.length>1;
               return grupos.map((grupo,gi)=>{
                 return(<React.Fragment key={grupo.nome}>
-                  {temGrupos&&<div style={{fontSize:11,fontWeight:700,color:"var(--text2)",textTransform:"uppercase",letterSpacing:".08em",marginTop:gi>0?8:0,marginBottom:4,padding:"4px 0",borderBottom:"1px solid var(--border)"}}>{grupo.nome}</div>}
+                  {temGrupos&&<div style={{display:"flex",alignItems:"center",gap:8,margin:`${gi>0?20:4}px 0 10px`}}>
+                    <div style={{flex:1,height:1,background:"var(--border)"}}/>
+                    <span style={{fontWeight:700,color:"var(--text)",fontSize:13,whiteSpace:"nowrap"}}>{grupo.nome}</span>
+                    <div style={{flex:1,height:1,background:"var(--border)"}}/>
+                  </div>}
+                  <div style={{display:"flex",flexDirection:"column",gap:8}}>
                   {grupo.membros.map((m)=>{
               const f=fl(m.freelancerId);if(!f)return null;
               const fid=m.freelancerId;
@@ -3811,6 +3816,7 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
                   {!gestaoMode&&<Btn small variant="danger" onClick={()=>remMembro(det.id,fid)}>×</Btn>}
                 </div>
               </div>);})}
+                  </div>
                 </React.Fragment>);});
             })()}
             {!gestaoMode&&det.equipe.length===0&&<div style={{color:"var(--text3)",fontSize:13,textAlign:"center",padding:"8px 0"}}>Adicione membros abaixo </div>}
