@@ -76,32 +76,22 @@ function buildEscalaDiariaGrupo(data, eventos, flById, templateCorpo) {
       blocoLinhas.push(`⏰ ${fmtHora(ev.horaInicio)} — ${fmtHora(ev.horaFim)}`);
     if (ev.obs) blocoLinhas.push(`📋 ${ev.obs}`);
 
-    const equipe   = ev.equipe   ?? [];
-    const services = ev.services ?? [];
+    const equipe = ev.equipe ?? [];
 
-    // Agrupa por serviço (ordem de event_services), sem-serviço no final
-    const byServiceId = {};
-    for (const svc of services) byServiceId[svc.id] = { nome: svc.nome_bruto, membros: [] };
-    const semServico = { nome: null, membros: [] };
-
+    // Agrupa por função, ordena por nome dentro de cada grupo
+    const mapaFn = {};
     for (const m of equipe) {
-      if (m.eventServiceId && byServiceId[m.eventServiceId]) {
-        byServiceId[m.eventServiceId].membros.push(m);
-      } else {
-        semServico.membros.push(m);
-      }
+      const fn = m.funcao || 'Sem função';
+      if (!mapaFn[fn]) mapaFn[fn] = [];
+      mapaFn[fn].push(m);
     }
+    const funcoes = Object.keys(mapaFn).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    const temGrupos = funcoes.length > 1;
 
-    const grupos = [...services.map(s => byServiceId[s.id])];
-    if (semServico.membros.length) grupos.push(semServico);
+    for (const fn of funcoes) {
+      if (temGrupos) blocoLinhas.push(`_${fn}_`);
 
-    const temGrupos = services.length > 0;
-
-    for (const grupo of grupos) {
-      if (temGrupos && grupo.nome) blocoLinhas.push(`_(${grupo.nome})_`);
-
-      // Ordena: sem critério de funcoes no backend, usa nome
-      const membrosOrdenados = [...grupo.membros]
+      const membrosOrdenados = [...mapaFn[fn]]
         .map(m => ({ m, fl: flById[String(m.freelancerId)] }))
         .filter(({ fl }) => fl)
         .sort((a, b) => (a.fl.nome || '').localeCompare(b.fl.nome || '', 'pt-BR'));

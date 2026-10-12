@@ -2614,28 +2614,17 @@ function ChecklistPage({eventos,tenantId}){
 
 const foiAtualizado=ev=>!!(ev.updatedAt&&Date.now()-new Date(ev.updatedAt).getTime()<48*3600000);
 
-/**
- * Agrupa ev.equipe por serviço, usando ev.services para os cabeçalhos.
- * Retorna [{serviceId, nome, membros:[]}], onde o último grupo (null) contém
- * membros sem serviço definido.
- * Dentro de cada grupo ordena: Líder primeiro, depois alfabético por nome.
- */
-const agruparEquipePorServico=(ev,funcoes,fl)=>{
-  const byId={};
-  (ev.services||[]).forEach(s=>{byId[s.id]={serviceId:s.id,nome:s.nome_bruto||"Serviço",membros:[]};});
-  const semServico={serviceId:null,nome:"Sem serviço",membros:[]};
+/** Agrupa ev.equipe por função, respeitando a ordem de funcoes[]. */
+const agruparEquipePorFuncao=(ev,funcoes,fl)=>{
+  const mapa={};
   for(const m of (ev.equipe||[])){
-    if(m.eventServiceId&&byId[m.eventServiceId])byId[m.eventServiceId].membros.push(m);
-    else semServico.membros.push(m);
+    const fn=m.funcao||"Sem função";
+    if(!mapa[fn])mapa[fn]=[];
+    mapa[fn].push(m);
   }
-  const sortMembros=arr=>[...arr].sort((a,b)=>{
-    const ia=funcoes.findIndex(f=>f.nome===a.funcao);const ib=funcoes.findIndex(f=>f.nome===b.funcao);
-    const fo=(ia<0?999:ia)-(ib<0?999:ib);if(fo!==0)return fo;
-    return(fl(a.freelancerId)?.nome||"").localeCompare(fl(b.freelancerId)?.nome||"","pt-BR");
-  });
-  const grupos=(ev.services||[]).map(s=>({...byId[s.id],membros:sortMembros(byId[s.id]?.membros||[])}));
-  if(semServico.membros.length)grupos.push({...semServico,membros:sortMembros(semServico.membros)});
-  return grupos;
+  const sortNome=arr=>[...arr].sort((a,b)=>(fl(a.freelancerId)?.nome||"").localeCompare(fl(b.freelancerId)?.nome||"","pt-BR"));
+  const ordemFn=fn=>{const i=funcoes.findIndex(f=>f.nome===fn);return i<0?999:i;};
+  return Object.keys(mapa).sort((a,b)=>ordemFn(a)-ordemFn(b)||a.localeCompare(b,"pt-BR")).map(fn=>({nome:fn,membros:sortNome(mapa[fn])}));
 };
 
 // ── PAINEL SUGESTÃO DE ESCALA ─────────────────────────────────────────────────
@@ -3206,11 +3195,10 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
     const fmtBR=d=>{if(!d)return"";const[y,m,day]=d.split("-");return`${day}/${m}/${y}`;};
     const dataHoje=new Date().toLocaleDateString("pt-BR");
     const flLookup=id=>freelancers.find(f=>f.id===id||f.id===+id);
-    const grupos=agruparEquipePorServico(ev,funcoes,flLookup);
-    const temGruposPdf=ev.services&&ev.services.length>0;
+    const grupos=agruparEquipePorFuncao(ev,funcoes,flLookup);
     let equipeOrdenada=[];grupos.forEach(g=>equipeOrdenada.push(...g.membros));
     const linhasEquipe=grupos.flatMap(g=>{
-      const header=temGruposPdf?`<tr><td colspan="7" style="background:#f0f9ff;font-weight:700;color:#0C6E7E;font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:6px 12px;border-bottom:1px solid #bae6fd">(${g.nome})</td></tr>`:"";
+      const header=grupos.length>1?`<tr><td colspan="7" style="background:#f0f9ff;font-weight:700;color:#0C6E7E;font-size:11px;text-transform:uppercase;letter-spacing:.06em;padding:6px 12px;border-bottom:1px solid #bae6fd">${g.nome}</td></tr>`:"";
       const rows=g.membros.map(m=>{
         const f=flLookup(m.freelancerId);if(!f)return"";
         const confData=getConfAdmin(confirmacoesMap,m.freelancerId,ev);
@@ -3720,12 +3708,11 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
           <div style={{fontWeight:700,color:"var(--text)",fontSize:14,marginBottom:10}}> Equipe {det.equipe.length>0&&<span style={{color:"var(--text2)",fontWeight:400,fontSize:12}}>({det.equipe.length})</span>}</div>
           <div style={{display:"flex",flexDirection:"column",gap:8,marginBottom:18}}>
             {(()=>{
-              const grupos=agruparEquipePorServico(det,funcoes,fl);
-              const temGrupos=det.services&&det.services.length>0;
+              const grupos=agruparEquipePorFuncao(det,funcoes,fl);
+              const temGrupos=grupos.length>1;
               return grupos.map((grupo,gi)=>{
-                const showHeader=temGrupos;
-                return(<React.Fragment key={grupo.serviceId||"__sem__"}>
-                  {showHeader&&<div style={{fontSize:11,fontWeight:700,color:"var(--text2)",textTransform:"uppercase",letterSpacing:".08em",marginTop:gi>0?8:0,marginBottom:4,padding:"4px 0",borderBottom:"1px solid var(--border)"}}>({grupo.nome})</div>}
+                return(<React.Fragment key={grupo.nome}>
+                  {temGrupos&&<div style={{fontSize:11,fontWeight:700,color:"var(--text2)",textTransform:"uppercase",letterSpacing:".08em",marginTop:gi>0?8:0,marginBottom:4,padding:"4px 0",borderBottom:"1px solid var(--border)"}}>{grupo.nome}</div>}
                   {grupo.membros.map((m)=>{
               const f=fl(m.freelancerId);if(!f)return null;
               const fid=m.freelancerId;
@@ -3892,17 +3879,6 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
             </div>
             {mf.freelancerId&&(()=>{const al=checkDisp(mf.freelancerId,det);if(!al||al.tipo==="disponivel"||al.tipo==="sem_info")return null;return(<div style={{background:al.cor+"15",border:`1px solid ${al.cor}33`,borderRadius:8,padding:"8px 12px",marginBottom:10,fontSize:12,color:al.cor}}>{al.tipo==="conflito"?"":al.tipo==="indisponivel"?"":""} {al.msg}</div>);})()}
             <div style={{display:"flex",flexDirection:"column",gap:8}}>
-              {det.services&&det.services.length>1&&(
-                <div>
-                  <label style={{fontSize:11,fontWeight:700,color:"var(--text2)",textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:5}}>Serviço</label>
-                  <select value={mf.eventServiceId||""} onChange={e=>setMf(f=>({...f,eventServiceId:e.target.value||null}))}
-                    style={{background:"var(--card)",border:`1.5px solid ${!mf.eventServiceId?"var(--warning)":"var(--border)"}`,borderRadius:8,padding:"8px 12px",color:"var(--text)",fontSize:12,outline:"none",fontFamily:"inherit",width:"100%",boxSizing:"border-box"}}>
-                    <option value="">— Selecione o serviço —</option>
-                    {det.services.map(s=><option key={s.id} value={s.id}>{s.nome_bruto}</option>)}
-                  </select>
-                  {!mf.eventServiceId&&<div style={{fontSize:10,color:"var(--warning)",marginTop:3}}>Selecione o serviço para esta alocação</div>}
-                </div>
-              )}
               <Sel label="Função" value={mf.funcao} onChange={e=>setFnMembro(e.target.value)}>
                 {funcoes.map(fn=><option key={fn.id} value={fn.nome}>{fn.nome}{fn.cacheDefault>0?` (R$ ${fn.cacheDefault.toFixed(2).replace(".",",")} padrão)`:""}</option>)}
               </Sel>
