@@ -2874,6 +2874,8 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
   const[rosterAplicando,setRosterAplicando]=useState(false);
   const[rosterNovos,setRosterNovos]=useState([]);
   const[enviarConfNow,setEnviarConfNow]=useState(true);
+  const[escalaCopied,setEscalaCopied]=useState(null); // [{freelancerId,funcao,cache,obs,...}]
+  const[escalaCopiadoDe,setEscalaCopiadoDe]=useState(null); // nome do evento de origem
   // Carrega adminId da sessão uma vez
   useEffect(()=>{
     sb.auth.getSession().then(({data:{session}})=>setWaAdminId(session?.user?.id||null)).catch(()=>{});
@@ -3179,6 +3181,28 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
     evSvc.removeMember(userId,eid,fid)
       .then(atualizado=>setEventos(evs=>evs.map(e=>e.id===eid?atualizado:e)))
       .catch(e=>{console.error("[remMembro]",e.message);addToast?.("Erro ao remover: "+e.message,"erro");evSvc.get(userId,eid).then(ev=>{if(ev)setEventos(evs=>evs.map(e=>e.id===eid?ev:e));}).catch(()=>{});});
+  };
+  const copiarEscala=(ev)=>{
+    if(!ev.equipe||ev.equipe.length===0){addToast?.("Este evento não tem equipe para copiar.","erro");return;}
+    const snapshot=ev.equipe.map(m=>({freelancerId:m.freelancerId,funcao:m.funcao,cache:m.cache,obs:m.obs,bonus:m.bonus,turnos:m.turnos||1,bonusMultTurnos:m.bonusMultTurnos||false}));
+    setEscalaCopied(snapshot);
+    setEscalaCopiadoDe(ev.nome);
+    addToast?.(`Escala copiada (${snapshot.length} membro${snapshot.length!==1?"s":""}) — abra outro evento e cole`,"ok");
+  };
+  const colarEscala=async(ev)=>{
+    if(!escalaCopied||escalaCopied.length===0)return;
+    const jaNoTime=new Set((ev.equipe||[]).map(m=>String(m.freelancerId)));
+    const novos=escalaCopied.filter(m=>!jaNoTime.has(String(m.freelancerId)));
+    if(novos.length===0){addToast?.("Todos os membros já estão nesta escala.","info");return;}
+    try{
+      const rows=novos.map(m=>({freelancer_id:String(m.freelancerId),funcao:m.funcao||"",cache_base:m.cache||0,obs:m.obs||"",pago:false,turnos:m.turnos||1,bonus_mult_turnos:m.bonusMultTurnos||false,bonus_nivel:m.bonus?.nivel||null,bonus_ativo:m.bonus?.ativo||false,event_id:ev.id,tenant_id:userId}));
+      const{error}=await sb.from("event_team").insert(rows);
+      if(error)throw new Error(error.message);
+      const atualizado=await evSvc.get(userId,ev.id);
+      if(atualizado)setEventos(evs=>evs.map(e=>e.id===ev.id?atualizado:e));
+      const ignorados=escalaCopied.length-novos.length;
+      addToast?.(`${novos.length} membro${novos.length!==1?"s":""} colado${novos.length!==1?"s":""} na escala${ignorados>0?` (${ignorados} já estava${ignorados!==1?"m":""})`:""}.`,"ok");
+    }catch(err){console.error("[colarEscala]",err.message);addToast?.("Erro ao colar escala: "+err.message,"erro");}
   };
   const hoje=localDateStr();
   const evOrdenados=[...eventos].sort((a,b)=>{const d=a.data.localeCompare(b.data);return d!==0?d:(a.horaInicio||"").localeCompare(b.horaInicio||"");});
@@ -3705,7 +3729,19 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
                 Sugerir escala
               </button>
           )}
-          <div style={{fontWeight:700,color:"var(--text)",fontSize:14,marginBottom:10}}> Equipe {det.equipe.length>0&&<span style={{color:"var(--text2)",fontWeight:400,fontSize:12}}>({det.equipe.length})</span>}</div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:10}}>
+            <div style={{fontWeight:700,color:"var(--text)",fontSize:14}}> Equipe {det.equipe.length>0&&<span style={{color:"var(--text2)",fontWeight:400,fontSize:12}}>({det.equipe.length})</span>}</div>
+            {!gestaoMode&&<div style={{display:"flex",gap:6}}>
+              {det.equipe.length>0&&<button onClick={()=>copiarEscala(det)} title="Copiar escala deste evento" style={{display:"flex",alignItems:"center",gap:5,background:"var(--bg)",border:"1px solid var(--border)",borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:600,color:"var(--text2)",cursor:"pointer",fontFamily:"inherit"}}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                Copiar
+              </button>}
+              {escalaCopied&&escalaCopied.length>0&&<button onClick={()=>colarEscala(det)} title={`Colar escala de "${escalaCopiadoDe}" (${escalaCopied.length} membros)`} style={{display:"flex",alignItems:"center",gap:5,background:"#EFF6FF",border:"1px solid #BFDBFE",borderRadius:8,padding:"5px 10px",fontSize:12,fontWeight:600,color:"#1D4ED8",cursor:"pointer",fontFamily:"inherit"}}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/></svg>
+                Colar {escalaCopiadoDe&&<span style={{fontWeight:400,fontSize:11,opacity:0.8,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{escalaCopiadoDe}</span>}
+              </button>}
+            </div>}
+          </div>
           <div style={{display:"flex",flexDirection:"column",gap:0,marginBottom:18}}>
             {(()=>{
               const grupos=agruparEquipePorFuncao(det,funcoes,fl);
