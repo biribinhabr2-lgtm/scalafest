@@ -55,4 +55,33 @@ async function listarEnvios(adminId, limite = 50) {
   return data ?? [];
 }
 
-module.exports = { salvarEnvios, listarEnvios };
+/**
+ * Retorna o conjunto de freelancer_ids que já receberam mensagem individual
+ * para qualquer um dos eventIds fornecidos.
+ *
+ * Usado pelo escala.service para evitar duplicação de individuais no reenvio.
+ *
+ * @param {string}   adminId
+ * @param {string[]} eventIds - UUIDs dos eventos do dia
+ * @returns {Promise<Set<string>>}
+ */
+async function listarIndividuaisEnviados(adminId, eventIds) {
+  const ids = eventIds.filter(Boolean);
+  if (!ids.length) return new Set();
+
+  const { data, error } = await supabase
+    .from('sf_envios_wa')
+    .select('freelancer_id')
+    .eq('admin_id', adminId)
+    .in('evento_id', ids)
+    .eq('mensagem', 'mensagem individual enviada')
+    .eq('status', 'enviado');
+
+  if (error) {
+    console.warn('[envios.repo] listarIndividuaisEnviados:', error.message);
+    return new Set();
+  }
+  return new Set((data ?? []).map(r => String(r.freelancer_id)));
+}
+
+module.exports = { salvarEnvios, listarEnvios, listarIndividuaisEnviados };

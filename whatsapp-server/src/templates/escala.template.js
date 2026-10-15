@@ -55,11 +55,13 @@ function normalizarTelefone(tel) {
 
   if (!d.startsWith('55')) d = '55' + d;
 
+  // 13 dígitos = 55 + DDD(2) + local(9) com 9° dígito → strip o 9
   if (d.length === 13) {
-    const afterDDD = d.slice(4);
-    if (afterDDD[0] === '9') return d.slice(0, 4) + afterDDD.slice(1);
-    return d.slice(0, 12);
+    const local = d.slice(4); // 9 dígitos do número local
+    if (local[0] === '9') return d.slice(0, 4) + local.slice(1); // 12 dígitos canônicos
+    return null; // 13 dígitos sem 9° dígito = inválido para celular BR
   }
+  // 12 dígitos = 55 + DDD(2) + local(8) = já canônico
   if (d.length === 12) return d;
   return null;
 }
@@ -182,11 +184,11 @@ function buildEscalaDiariaGrupo(data, eventos, flById, templateCorpo, participan
 
     if (ev.horaInicio && ev.horaFim) {
       const dur = calcDuracao(ev.horaInicio, ev.horaFim);
-      linhas.push(`${fmtHora(ev.horaInicio)} às ${fmtHora(ev.horaFim)}${dur ? ` · ${dur}` : ''}`);
+      linhas.push(`⏰ ${fmtHora(ev.horaInicio)} às ${fmtHora(ev.horaFim)}${dur ? ` · ${dur}` : ''}`);
     }
 
-    if (ev.local) linhas.push(`_${ev.local}_`);
-    if (ev.obs)   linhas.push(`_Obs: ${ev.obs}_`);
+    if (ev.local) linhas.push(`📍 _${ev.local}_`);
+    if (ev.obs)   linhas.push(`📝 _Obs: ${ev.obs}_`);
 
     // ── Grupos de função ────────────────────────────────────────────────────
     const equipe = ev.equipe ?? [];
@@ -206,7 +208,7 @@ function buildEscalaDiariaGrupo(data, eventos, flById, templateCorpo, participan
       if (!membrosOrdenados.length) continue;
 
       linhas.push('');
-      linhas.push(`*${tituloFuncao(fn, membrosOrdenados.length)}*`);
+      linhas.push(`🎭 *${tituloFuncao(fn, membrosOrdenados.length)}*`);
 
       for (const { m, fl } of membrosOrdenados) {
         const flId   = String(fl.id ?? m.freelancerId);
@@ -254,7 +256,7 @@ function buildEscalaDiariaGrupo(data, eventos, flById, templateCorpo, participan
   }
 
   const blocos_eventos = blocosEvento.join('\n\n———\n\n');
-  const corpo = templateCorpo || '*{{data_extenso}}*\n\n{{blocos_eventos}}';
+  const corpo = templateCorpo || '📅 *{{data_extenso}}*\n\n{{blocos_eventos}}';
   const texto = renderTemplate(corpo, {
     data_extenso: fmtDiaSemana(data),
     blocos_eventos,

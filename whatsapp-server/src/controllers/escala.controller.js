@@ -1,6 +1,7 @@
 'use strict';
 
 const escalaSvc  = require('../services/escala.service');
+
 const enviosRepo = require('../repositories/envios.repo');
 const sessionMgr = require('../whatsapp/sessionManager');
 
@@ -12,7 +13,7 @@ const sessionMgr = require('../whatsapp/sessionManager');
  * Envia a escala completa do dia para um grupo do WhatsApp.
  */
 async function enviarEscalaDia(req, res) {
-  const { adminId, data, grupoJid } = req.body ?? {};
+  const { adminId, data, grupoJid, reenviarIndividuais = false } = req.body ?? {};
 
   if (!adminId || !data || !grupoJid) {
     return res.status(400).json({
@@ -28,7 +29,7 @@ async function enviarEscalaDia(req, res) {
   }
 
   try {
-    const resultado = await escalaSvc.enviarEscalaDia(adminId, data, grupoJid);
+    const resultado = await escalaSvc.enviarEscalaDia(adminId, data, grupoJid, { reenviarIndividuais: !!reenviarIndividuais });
     res.json(resultado);
   } catch (err) {
     console.error('[escala.controller] Erro ao enviar escala do dia:', err.message);
@@ -50,4 +51,30 @@ async function listarEnvios(req, res) {
   }
 }
 
-module.exports = { enviarEscalaDia, listarEnvios };
+/**
+ * GET /api/escala/diagnostico?adminId=xxx&data=YYYY-MM-DD&grupoJid=xxx@g.us
+ *
+ * Diagnóstico sem envio: mostra participantes do grupo (JID bruto + formato),
+ * telefones dos freelancers escalados e o resultado da normalização de cada um.
+ */
+async function diagnosticarEscalaDia(req, res) {
+  const { adminId, data, grupoJid } = req.query;
+  if (!adminId || !data || !grupoJid) {
+    return res.status(400).json({ error: 'adminId, data (YYYY-MM-DD) e grupoJid são obrigatórios.' });
+  }
+
+  const sess = sessionMgr.getSession(adminId);
+  if (!sess?.connected) {
+    return res.status(503).json({ error: 'WhatsApp não conectado.' });
+  }
+
+  try {
+    const resultado = await escalaSvc.diagnosticarEscalaDia(adminId, data, grupoJid);
+    res.json(resultado);
+  } catch (err) {
+    console.error('[escala.controller] diagnostico:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+}
+
+module.exports = { enviarEscalaDia, listarEnvios, diagnosticarEscalaDia };
