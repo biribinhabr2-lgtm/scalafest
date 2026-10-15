@@ -152,10 +152,10 @@ function sortFuncoes(funcoes) {
  *
  * Regras:
  *   - Nome exibido: sempre do cadastro (fl.nome), nunca o nome do contato WA.
- *   - Menção (@): o JID real vai no array `mentions` para notificação; o texto
- *     usa "@NomeCadastro" para evitar que o WA substitua pelo contato da agenda.
- *   - Duração: calculada automaticamente de horaInicio/horaFim, aparece uma vez.
- *   - Obs da alocação (m.obs): após " — " no nome da pessoa, sem itálico.
+ *   - Menção (@): o texto usa "@<número>" (dígitos do JID, sem formatação) e o
+ *     JID completo entra em `mentions` — os dois precisam casar para o WA notificar.
+ *     Formato: "@5511987654321 — Ana Lima" ou "@5511987654321 — Camylle (Tristeza)"
+ *   - Obs da alocação (m.obs): entre parênteses após o nome, sem itálico.
  *   - Obs do evento (ev.obs): no cabeçalho em itálico.
  *   - participantesMap === null → fallback: menciona todos com telefone.
  *
@@ -211,9 +211,10 @@ function buildEscalaDiariaGrupo(data, eventos, flById, templateCorpo, participan
       linhas.push(`🎭 *${tituloFuncao(fn, membrosOrdenados.length)}*`);
 
       for (const { m, fl } of membrosOrdenados) {
-        const flId   = String(fl.id ?? m.freelancerId);
-        const nome   = fl.nome || `ID ${m.freelancerId}`;
-        const obsStr = m.obs ? ` — ${m.obs}` : '';  // " — obs"
+        const flId     = String(fl.id ?? m.freelancerId);
+        const nome     = fl.nome || `ID ${m.freelancerId}`;
+        const obsStr   = m.obs ? ` — ${m.obs}` : '';
+        const obsParen = m.obs ? ` (${m.obs})` : '';
         const telDigits = limparTel(fl.telefone);
 
         if (!telDigits) {
@@ -223,10 +224,11 @@ function buildEscalaDiariaGrupo(data, eventos, flById, templateCorpo, participan
         }
 
         if (participantesMap === null) {
-          // Fallback: menciona todos — usa nome do cadastro no texto, JID no array
+          // Fallback: menciona todos — @<número> no texto, JID completo no array
           const jid = telParaJid(fl.telefone);
           if (jid) {
-            linhas.push(`@${nome}${obsStr}`);
+            const num = jid.split('@')[0];
+            linhas.push(`@${num} — ${nome}${obsParen}`);
             mentionsSet.add(jid);
           } else {
             linhas.push(`${nome}${obsStr}`);
@@ -238,8 +240,9 @@ function buildEscalaDiariaGrupo(data, eventos, flById, templateCorpo, participan
         const jidNoGrupo = canonical ? participantesMap.get(canonical) : null;
 
         if (jidNoGrupo) {
-          // Participante do grupo → menção com nome do cadastro
-          linhas.push(`@${nome}${obsStr}`);
+          // Participante do grupo → @<número> no texto, JID real no array de menções
+          const num = jidNoGrupo.split('@')[0];
+          linhas.push(`@${num} — ${nome}${obsParen}`);
           mentionsSet.add(jidNoGrupo);
         } else {
           // Fora do grupo → só nome, agenda envio individual

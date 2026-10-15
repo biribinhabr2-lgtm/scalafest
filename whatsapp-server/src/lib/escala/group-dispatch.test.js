@@ -99,14 +99,15 @@ test('buildEscalaDiariaGrupo — formato do cabeçalho do evento', () => {
   assert.ok(texto.includes('TERÇA-FEIRA — 20/10'),       'data com em-dash');
 });
 
-test('buildEscalaDiariaGrupo — Ana mencionada pelo nome, Bruno e Carlos sem @', () => {
+test('buildEscalaDiariaGrupo — Ana mencionada pelo número JID, Bruno e Carlos sem @', () => {
   const { texto, mentions, foraDaGrupo, semTelefone } = buildEscalaDiariaGrupo(
     '2026-10-20', [EVENTO], flById, undefined, PARTICIPANTES_MAP
   );
 
-  // Ana está no grupo → @Nome do cadastro no texto (NÃO @número)
-  assert.ok(texto.includes('@Ana Lima'),           'Ana mencionada pelo nome do cadastro');
-  assert.ok(!texto.includes('@5511987654321'),      'sem @JID numérico no texto');
+  // Ana está no grupo → @<número> no texto + nome visível ao lado
+  assert.ok(texto.includes('@5511987654321'),       'Ana mencionada pelo número JID');
+  assert.ok(texto.includes('Ana Lima'),             'nome de Ana visível no texto');
+  assert.ok(!texto.includes('@Ana Lima'),           'sem @nome no texto (não funciona como menção)');
 
   // Bruno não está → apenas nome, sem @ de qualquer tipo
   assert.ok(texto.includes('Bruno Costa'),         'Bruno aparece no texto');
@@ -136,9 +137,11 @@ test('buildEscalaDiariaGrupo — fallback (participantesMap null) menciona todos
     '2026-10-20', [EVENTO], flById, undefined, null
   );
 
-  // No fallback, Ana e Bruno são mencionados pelo nome do cadastro
-  assert.ok(texto.includes('@Ana Lima'),    'Ana mencionada no fallback');
-  assert.ok(texto.includes('@Bruno Costa'), 'Bruno mencionado no fallback');
+  // No fallback, Ana e Bruno são mencionados pelo número JID
+  assert.ok(texto.includes('@5511987654321'), 'Ana mencionada pelo número no fallback');
+  assert.ok(texto.includes('@5511976543210'), 'Bruno mencionado pelo número no fallback');
+  assert.ok(texto.includes('Ana Lima'),       'nome de Ana visível no fallback');
+  assert.ok(texto.includes('Bruno Costa'),    'nome de Bruno visível no fallback');
 
   // Ninguém vai para "fora do grupo" no fallback
   assert.equal(foraDaGrupo.length, 0, 'sem foraDaGrupo no fallback');
