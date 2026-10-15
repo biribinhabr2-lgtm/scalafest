@@ -5,12 +5,12 @@ const DIAS_SEMANA = [
   'QUINTA-FEIRA','SEXTA-FEIRA','SÁBADO',
 ];
 
-/** "2024-01-15" → "QUINTA-FEIRA (15/01)" */
+/** "2024-01-15" → "QUINTA-FEIRA — 15/01" */
 function fmtDiaSemana(dataStr) {
   const [ano, mes, dia] = dataStr.split('-').map(Number);
   const d = new Date(Date.UTC(ano, mes - 1, dia));
   const nomeDia = DIAS_SEMANA[d.getUTCDay()];
-  return `${nomeDia} (${String(dia).padStart(2,'0')}/${String(mes).padStart(2,'0')})`;
+  return `${nomeDia} — ${String(dia).padStart(2,'0')}/${String(mes).padStart(2,'0')}`;
 }
 
 /** "HH:MM:SS" ou "HH:MM" → "HH:MM" */
@@ -20,6 +20,24 @@ function fmtHora(h) {
   return `${parts[0]}:${parts[1] || '00'}`;
 }
 
+/**
+ * Calcula duração entre dois horários "HH:MM".
+ * "09:00", "11:00" → "2h"   |   "09:30", "11:00" → "1h30"
+ * Retorna string vazia se inválido ou duração ≤ 0.
+ */
+function calcDuracao(horaInicio, horaFim) {
+  const hi = fmtHora(horaInicio);
+  const hf = fmtHora(horaFim);
+  if (!hi || !hf) return '';
+  const [hI, mI] = hi.split(':').map(Number);
+  const [hF, mF] = hf.split(':').map(Number);
+  const total = (hF * 60 + mF) - (hI * 60 + mI);
+  if (total <= 0) return '';
+  const h = Math.floor(total / 60);
+  const m = total % 60;
+  return m === 0 ? `${h}h` : `${h}h${m}`;
+}
+
 /** Remove tudo que não for dígito */
 function limparTel(tel) {
   return tel ? tel.replace(/\D/g, '') : '';
@@ -27,15 +45,7 @@ function limparTel(tel) {
 
 /**
  * Normaliza número brasileiro para forma canônica: 55 + DDD(2) + 8 dígitos.
- *
- * Trata números com e sem o 9° dígito como equivalentes:
- *   "11987654321"   → "551187654321"
- *   "1187654321"    → "551187654321"
- *   "5511987654321" → "551187654321"
- *
- * Isso permite comparar o telefone cadastrado (pode ser formato antigo) com
- * o JID retornado pelo WhatsApp (sempre inclui o 9° dígito para celulares BR).
- *
+ * Trata números com e sem o 9° dígito como equivalentes.
  * Retorna null se não puder normalizar.
  */
 function normalizarTelefone(tel) {
@@ -43,21 +53,14 @@ function normalizarTelefone(tel) {
   let d = String(tel).replace(/\D/g, '');
   if (!d) return null;
 
-  // Garante código de país 55
   if (!d.startsWith('55')) d = '55' + d;
 
-  // 55 + DDD(2) + 9 dígitos = 13 chars → contém 9° dígito
   if (d.length === 13) {
-    const afterDDD = d.slice(4); // 9 chars
-    if (afterDDD[0] === '9') {
-      return d.slice(0, 4) + afterDDD.slice(1); // remove 9° → 12 chars
-    }
-    return d.slice(0, 12); // edge: não começa com 9, trunca
+    const afterDDD = d.slice(4);
+    if (afterDDD[0] === '9') return d.slice(0, 4) + afterDDD.slice(1);
+    return d.slice(0, 12);
   }
-
-  // 55 + DDD(2) + 8 dígitos = 12 chars → já canônico
   if (d.length === 12) return d;
-
   return null;
 }
 
@@ -72,7 +75,7 @@ function telParaJid(tel) {
   return `${com55}@s.whatsapp.net`;
 }
 
-/** Extrai só o número do JID: "5511999990000@s.whatsapp.net" → "5511999990000" */
+/** "5511999990000@s.whatsapp.net" → "5511999990000" */
 function jidParaNumero(jid) {
   return jid.split('@')[0];
 }
@@ -84,23 +87,82 @@ function cmpHorario(a, b) {
   return ah !== bh ? ah - bh : am - bm;
 }
 
+// ── Títulos de função ─────────────────────────────────────────────────────────
+
+const PLURAL_MAP = {
+  'Líder':        'Líderes',
+  'Auxiliar':     'Auxiliares',
+  'Personagem':   'Personagens',
+  'Animador':     'Animadores',
+  'Animadora':    'Animadoras',
+  'Recreador':    'Recreadores',
+  'Recreadora':   'Recreadoras',
+  'Monitor':      'Monitores',
+  'Monitora':     'Monitoras',
+  'Coordenador':  'Coordenadores',
+  'Coordenadora': 'Coordenadoras',
+  'Assistente':   'Assistentes',
+  'Fotógrafo':    'Fotógrafos',
+  'Fotógrafa':    'Fotógrafas',
+  'Maquiador':    'Maquiadores',
+  'Maquiadora':   'Maquiadoras',
+};
+
+/** Título do grupo de função: plural quando count > 1. */
+function tituloFuncao(fn, count) {
+  if (count <= 1) return fn;
+  return PLURAL_MAP[fn] || `${fn}s`;
+}
+
+// Funções com posição fixa (sempre listadas primeiro, nessa ordem)
+const ORDEM_FIXA = ['Líder', 'Auxiliar', 'Personagem'];
+
+/** Ordena nomes de função: primeiro as de ORDEM_FIXA, depois as demais em ordem alfabética. */
+function sortFuncoes(funcoes) {
+  return [...funcoes].sort((a, b) => {
+    const pa = ORDEM_FIXA.indexOf(a);
+    const pb = ORDEM_FIXA.indexOf(b);
+    if (pa >= 0 && pb >= 0) return pa - pb;
+    if (pa >= 0) return -1;
+    if (pb >= 0) return  1;
+    return a.localeCompare(b, 'pt-BR');
+  });
+}
+
+// ── Builders ──────────────────────────────────────────────────────────────────
+
 /**
  * Constrói a mensagem de escala diária para envio em grupo.
  *
- * @param {string}   data            - "YYYY-MM-DD"
- * @param {Array}    eventos         - eventos do dia, já filtrados por data
- * @param {Object}   flById          - { [id]: freelancer } índice para lookup rápido
- * @param {string}   [templateCorpo] - corpo do template com {{data_extenso}} e {{blocos_eventos}}
- * @param {Map<string,string>|null} [participantesMap]
- *   Map de número canônico → JID real do grupo (@s.whatsapp.net).
- *   null = falha ao buscar participantes → fallback: menciona todos que têm telefone.
- *   Map vazio = grupo sem participantes resolvidos → ninguém é mencionado.
- * @returns {{
- *   texto: string,
- *   mentions: string[],
- *   foraDaGrupo: Array<{ fl: Object, eventosInfo: Array<{ ev, funcao, obs }> }>,
- *   semTelefone: string[]
- * }}
+ * Formato gerado (por evento, separados por ———):
+ *
+ *   *NOME DO EVENTO*
+ *   09:00 às 11:00 · 2h
+ *   _Local do evento_
+ *   _Obs: observação do evento_
+ *
+ *   *Líder*
+ *   @Nome Cadastro
+ *
+ *   *Personagens*
+ *   @Nome A — Personagem X
+ *   @Nome B — Personagem Y
+ *
+ * Regras:
+ *   - Nome exibido: sempre do cadastro (fl.nome), nunca o nome do contato WA.
+ *   - Menção (@): o JID real vai no array `mentions` para notificação; o texto
+ *     usa "@NomeCadastro" para evitar que o WA substitua pelo contato da agenda.
+ *   - Duração: calculada automaticamente de horaInicio/horaFim, aparece uma vez.
+ *   - Obs da alocação (m.obs): após " — " no nome da pessoa, sem itálico.
+ *   - Obs do evento (ev.obs): no cabeçalho em itálico.
+ *   - participantesMap === null → fallback: menciona todos com telefone.
+ *
+ * @param {string}   data
+ * @param {Array}    eventos         - eventos do dia já filtrados
+ * @param {Object}   flById          - { [id]: freelancer }
+ * @param {string}   [templateCorpo]
+ * @param {Map<string,string>|null} [participantesMap]  canonical → JID real
+ * @returns {{ texto, mentions, foraDaGrupo, semTelefone }}
  */
 function buildEscalaDiariaGrupo(data, eventos, flById, templateCorpo, participantesMap) {
   const ordenados = [...eventos].sort((a, b) =>
@@ -108,72 +170,78 @@ function buildEscalaDiariaGrupo(data, eventos, flById, templateCorpo, participan
   );
 
   const mentionsSet    = new Set();
-  const blocoLinhas    = [];
-  const foraDaGrupoMap = new Map(); // flId → { fl, eventosInfo: [] }
+  const blocosEvento   = [];
+  const foraDaGrupoMap = new Map();
   const semTelefoneSet = new Set();
 
   for (const ev of ordenados) {
-    blocoLinhas.push('');
-    blocoLinhas.push(`*${ev.nome}*`);
-    if (ev.local) blocoLinhas.push(`📍 ${ev.local}`);
-    if (ev.horaInicio && ev.horaFim)
-      blocoLinhas.push(`⏰ ${fmtHora(ev.horaInicio)} — ${fmtHora(ev.horaFim)}`);
-    if (ev.obs) blocoLinhas.push(`📋 ${ev.obs}`);
+    const linhas = [];
 
+    // ── Cabeçalho do evento ─────────────────────────────────────────────────
+    linhas.push(`*${ev.nome}*`);
+
+    if (ev.horaInicio && ev.horaFim) {
+      const dur = calcDuracao(ev.horaInicio, ev.horaFim);
+      linhas.push(`${fmtHora(ev.horaInicio)} às ${fmtHora(ev.horaFim)}${dur ? ` · ${dur}` : ''}`);
+    }
+
+    if (ev.local) linhas.push(`_${ev.local}_`);
+    if (ev.obs)   linhas.push(`_Obs: ${ev.obs}_`);
+
+    // ── Grupos de função ────────────────────────────────────────────────────
     const equipe = ev.equipe ?? [];
-
     const mapaFn = {};
     for (const m of equipe) {
       const fn = m.funcao || 'Sem função';
       if (!mapaFn[fn]) mapaFn[fn] = [];
       mapaFn[fn].push(m);
     }
-    const funcoes   = Object.keys(mapaFn).sort((a, b) => a.localeCompare(b, 'pt-BR'));
-    const temGrupos = funcoes.length > 1;
 
-    for (const fn of funcoes) {
-      if (temGrupos) blocoLinhas.push(`_${fn}_`);
-
+    for (const fn of sortFuncoes(Object.keys(mapaFn))) {
       const membrosOrdenados = [...mapaFn[fn]]
         .map(m => ({ m, fl: flById[String(m.freelancerId)] }))
         .filter(({ fl }) => fl)
         .sort((a, b) => (a.fl.nome || '').localeCompare(b.fl.nome || '', 'pt-BR'));
 
+      if (!membrosOrdenados.length) continue;
+
+      linhas.push('');
+      linhas.push(`*${tituloFuncao(fn, membrosOrdenados.length)}*`);
+
       for (const { m, fl } of membrosOrdenados) {
-        const funcaoObs = m.obs ? `${m.funcao} _(${m.obs})_` : m.funcao;
-        const flId      = String(fl.id ?? m.freelancerId);
+        const flId   = String(fl.id ?? m.freelancerId);
+        const nome   = fl.nome || `ID ${m.freelancerId}`;
+        const obsStr = m.obs ? ` — ${m.obs}` : '';  // " — obs"
         const telDigits = limparTel(fl.telefone);
 
         if (!telDigits) {
-          // Sem telefone cadastrado → só nome
-          blocoLinhas.push(`${fl.nome} - ${funcaoObs}`);
-          semTelefoneSet.add(fl.nome);
+          linhas.push(`${nome}${obsStr}`);
+          semTelefoneSet.add(nome);
           continue;
         }
 
         if (participantesMap === null) {
-          // Fallback: não foi possível buscar participantes → menciona normalmente
+          // Fallback: menciona todos — usa nome do cadastro no texto, JID no array
           const jid = telParaJid(fl.telefone);
           if (jid) {
-            blocoLinhas.push(`@${jidParaNumero(jid)} - ${funcaoObs}`);
+            linhas.push(`@${nome}${obsStr}`);
             mentionsSet.add(jid);
           } else {
-            blocoLinhas.push(`${fl.nome} - ${funcaoObs}`);
+            linhas.push(`${nome}${obsStr}`);
           }
           continue;
         }
 
-        // Verifica se está no grupo pelo número canônico
         const canonical  = normalizarTelefone(fl.telefone);
         const jidNoGrupo = canonical ? participantesMap.get(canonical) : null;
 
         if (jidNoGrupo) {
-          // Participante do grupo → menção normal com o JID real do WA
-          blocoLinhas.push(`@${jidParaNumero(jidNoGrupo)} - ${funcaoObs}`);
+          // Participante do grupo → menção com nome do cadastro
+          linhas.push(`@${nome}${obsStr}`);
           mentionsSet.add(jidNoGrupo);
         } else {
-          // Não está no grupo → só nome, agenda envio individual
-          blocoLinhas.push(`${fl.nome} - ${funcaoObs}`);
+          // Fora do grupo → só nome, agenda envio individual
+          linhas.push(`${nome}${obsStr}`);
           if (!foraDaGrupoMap.has(flId)) {
             foraDaGrupoMap.set(flId, { fl, eventosInfo: [] });
           }
@@ -181,10 +249,12 @@ function buildEscalaDiariaGrupo(data, eventos, flById, templateCorpo, participan
         }
       }
     }
+
+    blocosEvento.push(linhas.join('\n'));
   }
 
-  const blocos_eventos = blocoLinhas.join('\n').replace(/^\n/, '');
-  const corpo = templateCorpo || '🗓️ {{data_extenso}}\n\n{{blocos_eventos}}';
+  const blocos_eventos = blocosEvento.join('\n\n———\n\n');
+  const corpo = templateCorpo || '*{{data_extenso}}*\n\n{{blocos_eventos}}';
   const texto = renderTemplate(corpo, {
     data_extenso: fmtDiaSemana(data),
     blocos_eventos,
@@ -200,12 +270,6 @@ function buildEscalaDiariaGrupo(data, eventos, flById, templateCorpo, participan
 
 /**
  * Constrói a mensagem individual para um freelancer que não está no grupo.
- *
- * @param {string} data         - "YYYY-MM-DD"
- * @param {Object} fl           - objeto freelancer
- * @param {Array}  eventosInfo  - [{ ev, funcao, obs }] eventos desse freelancer no dia
- * @param {string} [templateCorpo]
- * @returns {string}
  */
 function buildEscalaIndividual(data, fl, eventosInfo, templateCorpo) {
   const linhas = [];
@@ -233,7 +297,6 @@ function buildEscalaIndividual(data, fl, eventosInfo, templateCorpo) {
 
 /**
  * Substitui {{variavel}} no corpo. Variável ausente → string vazia.
- * Exportada para reuso no frontend (via cópia) e em testes.
  */
 function renderTemplate(corpo, vars) {
   return corpo.replace(/\{\{(\w+)\}\}/g, (match, key) => {
@@ -249,6 +312,9 @@ module.exports = {
   buildEscalaDiariaGrupo,
   buildEscalaIndividual,
   normalizarTelefone,
+  calcDuracao,
+  tituloFuncao,
+  sortFuncoes,
   renderTemplate,
   telParaJid,
   limparTel,

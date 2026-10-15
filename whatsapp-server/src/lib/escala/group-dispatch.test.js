@@ -3,7 +3,7 @@
  * Testa o envio de escala com discriminação de participantes do grupo.
  *
  * Cenário: 3 freelancers escalados para o mesmo evento:
- *   - Ana Lima    → está no grupo   → @mencionada
+ *   - Ana Lima    → está no grupo   → @mencionada pelo nome do cadastro
  *   - Bruno Costa → não está        → só nome na msg do grupo + recebe individual
  *   - Carlos Melo → sem telefone    → só nome, entra em semTelefone
  *
@@ -17,6 +17,9 @@ const {
   buildEscalaDiariaGrupo,
   buildEscalaIndividual,
   normalizarTelefone,
+  calcDuracao,
+  tituloFuncao,
+  sortFuncoes,
 } = require('../../templates/escala.template');
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
@@ -33,6 +36,7 @@ const EVENTO = {
   local:      'Salão Azul',
   horaInicio: '10:00',
   horaFim:    '13:00',
+  obs:        '',
   data:       '2026-10-20',
   equipe: [
     { freelancerId: '1', funcao: 'Animador',   obs: '' },
@@ -58,22 +62,62 @@ test('normalizarTelefone — 8 e 9 dígitos mapeiam para a mesma forma canônica
   assert.equal(normalizarTelefone(null), null);
 });
 
-test('buildEscalaDiariaGrupo — Ana mencionada, Bruno e Carlos aparecem só com nome', () => {
+test('calcDuracao — retorna duração legível', () => {
+  assert.equal(calcDuracao('09:00', '11:00'), '2h');
+  assert.equal(calcDuracao('09:00', '10:30'), '1h30');
+  assert.equal(calcDuracao('10:00', '13:00'), '3h');
+  assert.equal(calcDuracao('10:00', '10:00'), '');   // mesmo horário
+  assert.equal(calcDuracao('', '13:00'),      '');   // inválido
+});
+
+test('tituloFuncao — singular/plural', () => {
+  assert.equal(tituloFuncao('Líder',      1), 'Líder');
+  assert.equal(tituloFuncao('Líder',      2), 'Líderes');
+  assert.equal(tituloFuncao('Personagem', 3), 'Personagens');
+  assert.equal(tituloFuncao('Animador',   2), 'Animadores');
+  assert.equal(tituloFuncao('Palhaço',    2), 'Palhaços');  // fallback +s
+});
+
+test('sortFuncoes — prioridade Líder/Auxiliar/Personagem, resto alfabético', () => {
+  const ordered = sortFuncoes(['Recreador', 'Personagem', 'Animador', 'Líder', 'Auxiliar']);
+  assert.equal(ordered[0], 'Líder');
+  assert.equal(ordered[1], 'Auxiliar');
+  assert.equal(ordered[2], 'Personagem');
+  // Animador e Recreador em ordem alfabética depois
+  assert.equal(ordered[3], 'Animador');
+  assert.equal(ordered[4], 'Recreador');
+});
+
+test('buildEscalaDiariaGrupo — formato do cabeçalho do evento', () => {
+  const { texto } = buildEscalaDiariaGrupo(
+    '2026-10-20', [EVENTO], flById, undefined, PARTICIPANTES_MAP
+  );
+
+  assert.ok(texto.includes('*Festa Infantil*'),         'nome do evento em negrito');
+  assert.ok(texto.includes('10:00 às 13:00 · 3h'),      'horário e duração no header');
+  assert.ok(texto.includes('_Salão Azul_'),              'local em itálico');
+  assert.ok(texto.includes('TERÇA-FEIRA — 20/10'),       'data com em-dash');
+});
+
+test('buildEscalaDiariaGrupo — Ana mencionada pelo nome, Bruno e Carlos sem @', () => {
   const { texto, mentions, foraDaGrupo, semTelefone } = buildEscalaDiariaGrupo(
     '2026-10-20', [EVENTO], flById, undefined, PARTICIPANTES_MAP
   );
 
-  // Ana está no grupo → menção com JID
-  assert.ok(texto.includes('@5511987654321 - Animador'), 'Ana deve ser @mencionada');
+  // Ana está no grupo → @Nome do cadastro no texto (NÃO @número)
+  assert.ok(texto.includes('@Ana Lima'),           'Ana mencionada pelo nome do cadastro');
+  assert.ok(!texto.includes('@5511987654321'),      'sem @JID numérico no texto');
 
-  // Bruno não está → apenas nome, sem @JID
-  assert.ok(texto.includes('Bruno Costa - Recreador'),  'Bruno deve aparecer sem @');
-  assert.ok(!texto.includes('@5511976543210'),           'Bruno não deve ter @JID');
+  // Bruno não está → apenas nome, sem @ de qualquer tipo
+  assert.ok(texto.includes('Bruno Costa'),         'Bruno aparece no texto');
+  assert.ok(!texto.includes('@Bruno Costa'),        'Bruno sem @ no texto');
+  assert.ok(!texto.includes('@5511976543210'),      'Bruno sem @JID numérico');
 
   // Carlos sem telefone → apenas nome
-  assert.ok(texto.includes('Carlos Melo - Assistente'), 'Carlos deve aparecer sem @');
+  assert.ok(texto.includes('Carlos Melo'),         'Carlos aparece no texto');
+  assert.ok(!texto.includes('@Carlos'),             'Carlos sem @');
 
-  // mentions contém só Ana
+  // mentions contém JID real de Ana (para notificação)
   assert.deepEqual(mentions, ['5511987654321@s.whatsapp.net']);
 
   // foraDaGrupo contém Bruno com o evento correto
@@ -92,13 +136,13 @@ test('buildEscalaDiariaGrupo — fallback (participantesMap null) menciona todos
     '2026-10-20', [EVENTO], flById, undefined, null
   );
 
-  // No fallback, Ana e Bruno são mencionados (têm telefone)
-  assert.ok(texto.includes('@5511987654321'), 'Ana mencionada no fallback');
-  assert.ok(texto.includes('@5511976543210'), 'Bruno mencionado no fallback');
+  // No fallback, Ana e Bruno são mencionados pelo nome do cadastro
+  assert.ok(texto.includes('@Ana Lima'),    'Ana mencionada no fallback');
+  assert.ok(texto.includes('@Bruno Costa'), 'Bruno mencionado no fallback');
 
   // Ninguém vai para "fora do grupo" no fallback
   assert.equal(foraDaGrupo.length, 0, 'sem foraDaGrupo no fallback');
-  assert.equal(mentions.length, 2, 'dois @JIDs no fallback');
+  assert.equal(mentions.length, 2, 'dois JIDs no fallback');
 
   // Carlos ainda aparece em semTelefone
   assert.deepEqual(semTelefone, ['Carlos Melo']);
@@ -125,6 +169,6 @@ test('buildEscalaIndividual — usa corpo do template personalizado', () => {
     [{ ev: EVENTO, funcao: 'Recreador', obs: '' }],
     tplCorpo
   );
-  assert.ok(msg.startsWith('Oi Bruno Costa'),     'template personalizado aplicado');
-  assert.ok(msg.includes('TERÇA-FEIRA (20/10)'),  'data extenso no template');
+  assert.ok(msg.startsWith('Oi Bruno Costa'),      'template personalizado aplicado');
+  assert.ok(msg.includes('TERÇA-FEIRA — 20/10'),   'data extenso com em-dash');
 });

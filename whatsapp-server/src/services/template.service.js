@@ -66,7 +66,7 @@ const DEFAULTS = {
   escala_diaria_grupo: {
     nome: 'Escala do Dia (grupo)',
     corpo: [
-      '🗓️ {{data_extenso}}',
+      '*{{data_extenso}}*',
       '',
       '{{blocos_eventos}}',
     ].join('\n'),
