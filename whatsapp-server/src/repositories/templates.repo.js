@@ -64,6 +64,7 @@ function _nome(chave) {
     escala_diaria_grupo:   'Escala do Dia (grupo)',
     lembrete_vespera:      'Lembrete Véspera',
     feedback_pos_evento:   'Pedido de Feedback',
+    escala_individual:     'Escala Individual (fora do grupo)',
   };
   return nomes[chave] || chave;
 }
@@ -77,6 +78,7 @@ function _vars(chave) {
     escala_diaria_grupo:   ['{{data_extenso}}','{{blocos_eventos}}'],
     lembrete_vespera:      ['{{nome}}','{{evento}}','{{data}}','{{hora_inicio}}','{{hora_fim}}','{{local}}','{{funcao}}'],
     feedback_pos_evento:   ['{{nome}}','{{evento}}','{{link_feedback}}'],
+    escala_individual:     ['{{nome}}','{{data_extenso}}','{{blocos_eventos}}'],
   };
   return vars[chave] || [];
 }

@@ -8,7 +8,6 @@ const DIAS_SEMANA = [
 /** "2024-01-15" → "QUINTA-FEIRA (15/01)" */
 function fmtDiaSemana(dataStr) {
   const [ano, mes, dia] = dataStr.split('-').map(Number);
-  // Usa UTC para evitar problema de fuso horário
   const d = new Date(Date.UTC(ano, mes - 1, dia));
   const nomeDia = DIAS_SEMANA[d.getUTCDay()];
   return `${nomeDia} (${String(dia).padStart(2,'0')}/${String(mes).padStart(2,'0')})`;
@@ -27,6 +26,42 @@ function limparTel(tel) {
 }
 
 /**
+ * Normaliza número brasileiro para forma canônica: 55 + DDD(2) + 8 dígitos.
+ *
+ * Trata números com e sem o 9° dígito como equivalentes:
+ *   "11987654321"   → "551187654321"
+ *   "1187654321"    → "551187654321"
+ *   "5511987654321" → "551187654321"
+ *
+ * Isso permite comparar o telefone cadastrado (pode ser formato antigo) com
+ * o JID retornado pelo WhatsApp (sempre inclui o 9° dígito para celulares BR).
+ *
+ * Retorna null se não puder normalizar.
+ */
+function normalizarTelefone(tel) {
+  if (!tel) return null;
+  let d = String(tel).replace(/\D/g, '');
+  if (!d) return null;
+
+  // Garante código de país 55
+  if (!d.startsWith('55')) d = '55' + d;
+
+  // 55 + DDD(2) + 9 dígitos = 13 chars → contém 9° dígito
+  if (d.length === 13) {
+    const afterDDD = d.slice(4); // 9 chars
+    if (afterDDD[0] === '9') {
+      return d.slice(0, 4) + afterDDD.slice(1); // remove 9° → 12 chars
+    }
+    return d.slice(0, 12); // edge: não começa com 9, trunca
+  }
+
+  // 55 + DDD(2) + 8 dígitos = 12 chars → já canônico
+  if (d.length === 12) return d;
+
+  return null;
+}
+
+/**
  * Converte telefone brasileiro para JID do WhatsApp.
  * "(11) 99999-0000" → "5511999990000@s.whatsapp.net"
  */
@@ -42,9 +77,7 @@ function jidParaNumero(jid) {
   return jid.split('@')[0];
 }
 
-/**
- * Compara dois horários "HH:MM" para ordenação.
- */
+/** Compara dois horários "HH:MM" para ordenação. */
 function cmpHorario(a, b) {
   const [ah, am] = a.split(':').map(Number);
   const [bh, bm] = b.split(':').map(Number);
@@ -58,15 +91,26 @@ function cmpHorario(a, b) {
  * @param {Array}    eventos         - eventos do dia, já filtrados por data
  * @param {Object}   flById          - { [id]: freelancer } índice para lookup rápido
  * @param {string}   [templateCorpo] - corpo do template com {{data_extenso}} e {{blocos_eventos}}
- * @returns {{ texto: string, mentions: string[] }}
+ * @param {Map<string,string>|null} [participantesMap]
+ *   Map de número canônico → JID real do grupo (@s.whatsapp.net).
+ *   null = falha ao buscar participantes → fallback: menciona todos que têm telefone.
+ *   Map vazio = grupo sem participantes resolvidos → ninguém é mencionado.
+ * @returns {{
+ *   texto: string,
+ *   mentions: string[],
+ *   foraDaGrupo: Array<{ fl: Object, eventosInfo: Array<{ ev, funcao, obs }> }>,
+ *   semTelefone: string[]
+ * }}
  */
-function buildEscalaDiariaGrupo(data, eventos, flById, templateCorpo) {
+function buildEscalaDiariaGrupo(data, eventos, flById, templateCorpo, participantesMap) {
   const ordenados = [...eventos].sort((a, b) =>
     cmpHorario(fmtHora(a.horaInicio) || '00:00', fmtHora(b.horaInicio) || '00:00')
   );
 
-  const mentionsSet = new Set();
-  const blocoLinhas = [];
+  const mentionsSet    = new Set();
+  const blocoLinhas    = [];
+  const foraDaGrupoMap = new Map(); // flId → { fl, eventosInfo: [] }
+  const semTelefoneSet = new Set();
 
   for (const ev of ordenados) {
     blocoLinhas.push('');
@@ -78,14 +122,13 @@ function buildEscalaDiariaGrupo(data, eventos, flById, templateCorpo) {
 
     const equipe = ev.equipe ?? [];
 
-    // Agrupa por função, ordena por nome dentro de cada grupo
     const mapaFn = {};
     for (const m of equipe) {
       const fn = m.funcao || 'Sem função';
       if (!mapaFn[fn]) mapaFn[fn] = [];
       mapaFn[fn].push(m);
     }
-    const funcoes = Object.keys(mapaFn).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    const funcoes   = Object.keys(mapaFn).sort((a, b) => a.localeCompare(b, 'pt-BR'));
     const temGrupos = funcoes.length > 1;
 
     for (const fn of funcoes) {
@@ -98,13 +141,43 @@ function buildEscalaDiariaGrupo(data, eventos, flById, templateCorpo) {
 
       for (const { m, fl } of membrosOrdenados) {
         const funcaoObs = m.obs ? `${m.funcao} _(${m.obs})_` : m.funcao;
-        const jid = telParaJid(fl.telefone);
-        if (jid) {
-          const num = jidParaNumero(jid);
-          blocoLinhas.push(`@${num} - ${funcaoObs}`);
-          mentionsSet.add(jid);
-        } else {
+        const flId      = String(fl.id ?? m.freelancerId);
+        const telDigits = limparTel(fl.telefone);
+
+        if (!telDigits) {
+          // Sem telefone cadastrado → só nome
           blocoLinhas.push(`${fl.nome} - ${funcaoObs}`);
+          semTelefoneSet.add(fl.nome);
+          continue;
+        }
+
+        if (participantesMap === null) {
+          // Fallback: não foi possível buscar participantes → menciona normalmente
+          const jid = telParaJid(fl.telefone);
+          if (jid) {
+            blocoLinhas.push(`@${jidParaNumero(jid)} - ${funcaoObs}`);
+            mentionsSet.add(jid);
+          } else {
+            blocoLinhas.push(`${fl.nome} - ${funcaoObs}`);
+          }
+          continue;
+        }
+
+        // Verifica se está no grupo pelo número canônico
+        const canonical  = normalizarTelefone(fl.telefone);
+        const jidNoGrupo = canonical ? participantesMap.get(canonical) : null;
+
+        if (jidNoGrupo) {
+          // Participante do grupo → menção normal com o JID real do WA
+          blocoLinhas.push(`@${jidParaNumero(jidNoGrupo)} - ${funcaoObs}`);
+          mentionsSet.add(jidNoGrupo);
+        } else {
+          // Não está no grupo → só nome, agenda envio individual
+          blocoLinhas.push(`${fl.nome} - ${funcaoObs}`);
+          if (!foraDaGrupoMap.has(flId)) {
+            foraDaGrupoMap.set(flId, { fl, eventosInfo: [] });
+          }
+          foraDaGrupoMap.get(flId).eventosInfo.push({ ev, funcao: m.funcao, obs: m.obs });
         }
       }
     }
@@ -113,11 +186,49 @@ function buildEscalaDiariaGrupo(data, eventos, flById, templateCorpo) {
   const blocos_eventos = blocoLinhas.join('\n').replace(/^\n/, '');
   const corpo = templateCorpo || '🗓️ {{data_extenso}}\n\n{{blocos_eventos}}';
   const texto = renderTemplate(corpo, {
-    data_extenso:   fmtDiaSemana(data),
+    data_extenso: fmtDiaSemana(data),
     blocos_eventos,
   });
 
-  return { texto, mentions: [...mentionsSet] };
+  return {
+    texto,
+    mentions:    [...mentionsSet],
+    foraDaGrupo: [...foraDaGrupoMap.values()],
+    semTelefone: [...semTelefoneSet],
+  };
+}
+
+/**
+ * Constrói a mensagem individual para um freelancer que não está no grupo.
+ *
+ * @param {string} data         - "YYYY-MM-DD"
+ * @param {Object} fl           - objeto freelancer
+ * @param {Array}  eventosInfo  - [{ ev, funcao, obs }] eventos desse freelancer no dia
+ * @param {string} [templateCorpo]
+ * @returns {string}
+ */
+function buildEscalaIndividual(data, fl, eventosInfo, templateCorpo) {
+  const linhas = [];
+  for (const { ev, funcao, obs } of eventosInfo) {
+    linhas.push(`*${ev.nome}*`);
+    if (ev.local) linhas.push(`📍 ${ev.local}`);
+    if (ev.horaInicio && ev.horaFim)
+      linhas.push(`⏰ ${fmtHora(ev.horaInicio)} — ${fmtHora(ev.horaFim)}`);
+    const funcaoObs = obs ? `${funcao} _(${obs})_` : funcao;
+    linhas.push(`🎭 ${funcaoObs}`);
+    linhas.push('');
+  }
+  const blocos_eventos = linhas.join('\n').trimEnd();
+  const corpo = templateCorpo || [
+    'Olá, *{{nome}}*! 👋',
+    '',
+    'Você está escalado(a) para {{data_extenso}}:',
+    '',
+    '{{blocos_eventos}}',
+    '',
+    'Qualquer dúvida, é só chamar! 😊',
+  ].join('\n');
+  return renderTemplate(corpo, { nome: fl.nome, data_extenso: fmtDiaSemana(data), blocos_eventos });
 }
 
 /**
@@ -134,4 +245,11 @@ function renderTemplate(corpo, vars) {
   });
 }
 
-module.exports = { buildEscalaDiariaGrupo, renderTemplate, telParaJid, limparTel };
+module.exports = {
+  buildEscalaDiariaGrupo,
+  buildEscalaIndividual,
+  normalizarTelefone,
+  renderTemplate,
+  telParaJid,
+  limparTel,
+};

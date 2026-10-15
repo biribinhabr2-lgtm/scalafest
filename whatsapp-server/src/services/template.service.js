@@ -109,6 +109,21 @@ const DEFAULTS = {
     variaveis_disponiveis: ['{{nome}}','{{evento}}','{{link_feedback}}'],
     ativo: true,
   },
+
+  escala_individual: {
+    nome: 'Escala Individual (fora do grupo)',
+    corpo: [
+      'Olá, *{{nome}}*! 👋',
+      '',
+      'Você está escalado(a) para {{data_extenso}}:',
+      '',
+      '{{blocos_eventos}}',
+      '',
+      'Qualquer dúvida, é só chamar! 😊',
+    ].join('\n'),
+    variaveis_disponiveis: ['{{nome}}','{{data_extenso}}','{{blocos_eventos}}'],
+    ativo: true,
+  },
 };
 
 // ── Cache em memória (5 min por tenant) ──────────────────────────────────────

@@ -3587,10 +3587,14 @@ function AbaEventos({eventos,setEventos,freelancers,disponibilidade,funcoes,user
           const nova=window.prompt("URL do servidor WhatsApp (ex: https://xxxx.loca.lt)",atual);
           if(nova!==null){const url=_normalizeWaUrl(nova);localStorage.setItem("wa_server_url",url);setWaUrl(url);}
         }} style={{background:"transparent",border:"1px solid #BBF7D0",borderRadius:8,padding:"5px 9px",fontSize:13,cursor:"pointer",color:"#15803D",display:"inline-flex",alignItems:"center"}}><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
-        {waResultado&&<div style={{width:"100%",marginTop:4,fontSize:12,color:waResultado.error?"var(--danger)":"#15803D"}}>
+        {waResultado&&<div style={{width:"100%",marginTop:4,fontSize:12}}>
           {waResultado.error
-            ?" "+waResultado.error
-            :"Enviado! "+waResultado.totalEventos+" evento(s) · "+waResultado.totalFuncionarios+" funcionário(s)"+(waResultado.semTelefone&&waResultado.semTelefone.length>0?" ·  sem tel: "+waResultado.semTelefone.join(", "):"")
+            ?<span style={{color:"var(--danger)"}}> {waResultado.error}</span>
+            :<>
+              <span style={{color:"#15803D"}}>{"✅ Enviado! "+waResultado.totalEventos+" evento(s) · "+waResultado.totalFuncionarios+" funcionário(s)"+(waResultado.individuaisEnviados?.length>0?" · 📩 individual: "+waResultado.individuaisEnviados.join(", "):"")}</span>
+              {(waResultado.foraDaGrupo?.length>0||waResultado.semTelefone?.length>0)&&<div style={{color:"#b45309",marginTop:2}}>{waResultado.foraDaGrupo?.length>0&&("⚠️ Fora do grupo: "+waResultado.foraDaGrupo.join(", ")+(waResultado.individuaisEnviados?.length>0?" (msg individual enviada)":""))}{waResultado.foraDaGrupo?.length>0&&waResultado.semTelefone?.length>0&&" · "}{waResultado.semTelefone?.length>0&&("⚠️ Sem telefone: "+waResultado.semTelefone.join(", "))}</div>}
+              {waResultado.individuaisFalharam?.length>0&&<div style={{color:"var(--danger)",marginTop:2}}>{"✗ Falha no envio individual: "+waResultado.individuaisFalharam.map(f=>f.nome).join(", ")}</div>}
+            </>
           }
         </div>}
       </div>

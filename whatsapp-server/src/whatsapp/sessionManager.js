@@ -228,6 +228,25 @@ async function sendMessage(adminId, jid, texto, mentions = []) {
   });
 }
 
+/**
+ * Busca os participantes de um grupo WA.
+ * @param {string} adminId
+ * @param {string} grupoJid - "XXXXXXXX@g.us"
+ * @returns {Promise<{ ok: true, participants: Array<{id: string}> } | { ok: false, erro: string }>}
+ */
+async function getGroupParticipants(adminId, grupoJid) {
+  const sess = sessions.get(adminId);
+  if (!sess?.connected || !sess.sock) {
+    return { ok: false, erro: 'WhatsApp não conectado.' };
+  }
+  try {
+    const meta = await sess.sock.groupMetadata(grupoJid);
+    return { ok: true, participants: meta.participants || [] };
+  } catch (err) {
+    return { ok: false, erro: err.message };
+  }
+}
+
 // ─── Reconectar sessões existentes ao iniciar o servidor ──────────────────────
 
 /**
@@ -249,4 +268,4 @@ async function restoreExistingSessions() {
   await Promise.allSettled(adminIds.map(adminId => createSession(adminId)));
 }
 
-module.exports = { getSession, createSession, destroySession, sendMessage, restoreExistingSessions };
+module.exports = { getSession, createSession, destroySession, sendMessage, getGroupParticipants, restoreExistingSessions };
